@@ -1,0 +1,85 @@
+/* Settings.module.css */
+.root {
+  position: absolute;
+  inset: 0;
+  padding: 24px 32px;
+  overflow-y: auto;
+  background: #eef1f5;
+  color: #1f2937;
+}
+
+.root h2 {
+  margin: 0 0 20px;
+  font-size: 22px;
+}
+
+.card {
+  max-width: 900px;
+  margin-bottom: 20px;
+  padding: 20px 24px;
+  background: #f4f4f4;
+  border: 1px solid #d9dee6;
+  border-radius: 12px;
+}
+
+.card h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #5b6b7c;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #0048c0;
+  cursor: pointer;
+}
+
+.range {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0 4px;
+  font-size: 14px;
+  color: #5b6b7c;
+}
+
+.range input {
+  flex: 1;
+  max-width: 320px;
+  accent-color: #0048c0;
+}
+
+.range b {
+  min-width: 46px;
+  color: #1f2937;
+  font-variant-numeric: tabular-nums;
+}
+
+.test {
+  margin-top: 12px;
+  padding: 10px 18px;
+  background: #d9dee6;
+  color: #1f2937;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.test:not(:disabled):hover { background: #24507c; }
+
+.test:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -1,0 +1,107 @@
+/* UsersPanel.module.css */
+.panel {
+  max-width: 900px;
+  margin-bottom: 20px;
+  padding: 20px 24px;
+  background: #f4f4f4;
+  border: 1px solid #d9dee6;
+  border-radius: 12px;
+}
+
+.panel h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #5b6b7c;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  margin-bottom: 18px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th,
+.table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid #d9dee6;
+}
+
+.table th {
+  color: #5b6b7c;
+  font-weight: 600;
+}
+
+.select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #d9dee6;
+  border-radius: 8px;
+  background: #eef1f5;
+  color: #1f2937;
+  font: inherit;
+}
+
+.remove {
+  padding: 6px 12px;
+  background: #a51f1f;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.remove:not(:disabled):hover { background: #96244a; }
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  align-items: end;
+  padding-top: 16px;
+  border-top: 1px solid #d9dee6;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #5b6b7c;
+}
+
+.field input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #d9dee6;
+  border-radius: 8px;
+  background: #eef1f5;
+  color: #1f2937;
+  font: inherit;
+}
+
+.submit {
+  height: 34px;
+  padding: 0 16px;
+  background: #0048c0;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.submit:hover { background: #0048c0; }
+
+.ok { margin: 12px 0 0; font-size: 13px; color: #2e7d32; }
+.error { margin: 12px 0 0; font-size: 13px; color: #c62828; }

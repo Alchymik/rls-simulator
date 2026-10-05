@@ -1,0 +1,68 @@
+/* MapControls.module.css */
+.root {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.compass,
+.home,
+.small {
+  display: grid;
+  place-items: center;
+  background: rgba(15, 35, 56, 0.92);
+  border: 1px solid #d9dee6;
+  color: #1f2937;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.compass {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+}
+
+.needle {
+  transition: transform 0.15s linear;
+  transform-origin: 50% 50%;
+}
+
+.bearing {
+  position: absolute;
+  bottom: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #5b6b7c;
+  font-variant-numeric: tabular-nums;
+}
+
+.rotateRow {
+  display: flex;
+  gap: 6px;
+}
+
+.small {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.home {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.compass:hover,
+.home:hover,
+.small:hover {
+  background: #d9dee6;
+}

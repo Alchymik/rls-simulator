@@ -1,0 +1,42 @@
+/* ErrorBoundary.module.css */
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 100%;
+  padding: 40px;
+  text-align: center;
+  background: #eef1f5;
+  color: #1f2937;
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  color: #c62828;
+}
+
+.message {
+  margin: 0;
+  max-width: 640px;
+  padding: 14px 18px;
+  background: #f4f4f4;
+  border: 1px solid #d9dee6;
+  border-radius: 10px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  color: #5b6b7c;
+  word-break: break-word;
+}
+
+.reload {
+  padding: 12px 22px;
+  background: #0048c0;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.reload:hover { background: #0048c0; }

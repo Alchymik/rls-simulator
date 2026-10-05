@@ -1,0 +1,110 @@
+/* SimulationSettingsMenu.module.css */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1050;
+  background: rgba(10, 30, 70, 0.45);
+}
+
+.panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 22px;
+  background: #f4f4f4;
+  border-left: 1px solid #d9dee6;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.45);
+  color: #1f2937;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #0d2b66;
+}
+
+.close {
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  color: #5b6b7c;
+  font-size: 16px;
+  border-radius: 8px;
+}
+
+.close:hover {
+  background: #d9dee6;
+  color: #1f2937;
+}
+
+.block {
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 10px;
+}
+
+.block h4 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b6b7c;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #0048c0;
+  cursor: pointer;
+}
+
+.action {
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px 12px;
+  background: #d9dee6;
+  color: #1f2937;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.action:hover { background: #24507c; }
+
+.hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #2e7d32;
+}
+
+.exit {
+  margin-top: auto;
+  padding: 12px;
+  background: #a51f1f;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.exit:hover { background: #96244a; }
