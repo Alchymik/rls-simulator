@@ -1,39 +1,35 @@
-import { Fragment, useEffect } from 'react';
-import { MapContainer, TileLayer, Circle, Polygon, Marker, Polyline, Tooltip, useMap } from 'react-leaflet';
+import { memo, useEffect, useMemo } from 'react';
+import { MapContainer, Circle, Polygon, Marker, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { useSimulationStore } from '@/features/simulation/model/simulationStore';
 import { useSettingsStore } from '@/features/settings/model/settingsStore';
-import { DETECTION_ZONE, IGNORE_ZONE, RADAR } from '@/features/simulation/lib/config';
+import { DEFAULT_ZOOM, DETECTION_ZONE, IGNORE_ZONE, RADAR } from '@/features/simulation/lib/config';
 import { headingChevron, movePoint } from '@/shared/lib/geo';
 import { clearActiveMap, setActiveMap } from '@/shared/lib/mapRegistry';
 import { formatCoordinates } from '@/shared/lib/format';
 import { msToKmh } from '@/shared/lib/units';
-import type { LatLng, Target } from '@/entities/target/types';
+import type { Target } from '@/entities/target/types';
 import styles from './RadarMap.module.css';
+import { Basemap } from './Basemap';
 
-const COLOR_IDLE = '#0048c0';
-const COLOR_CORRECT = '#2e7d32';
-const COLOR_WRONG = '#c62828';
+type DotState = 'idle' | 'correct' | 'wrong';
 
-// Leaflet пересоздаёт DOM-узел маркера, когда меняется объект иконки, поэтому иконки
-// кэшируются по цвету: иначе маркеры пересобираются каждый кадр и тултип не открывается.
-const iconCache = new Map<string, L.DivIcon>();
-const dotIcon = (color: string): L.DivIcon => {
-  let icon = iconCache.get(color);
-  if (!icon) {
-    icon = L.divIcon({
-      className: styles.dot,
-      html: `<span style="background:${color}"></span>`,
-      iconSize: [14, 14],
-      iconAnchor: [7, 7],
-    });
-    iconCache.set(color, icon);
-  }
-  return icon;
+// Leaflet пересоздаёт DOM-узел маркера, когда меняется объект иконки, поэтому иконок всего три
+// и они создаются один раз. Цвет задают CSS-классы, а не инлайн-стиль.
+const DOT_ICONS: Record<DotState, L.DivIcon> = {
+  idle: L.divIcon({ className: styles.dot, html: '<span></span>', iconSize: [14, 14], iconAnchor: [7, 7] }),
+  correct: L.divIcon({
+    className: `${styles.dot} ${styles.correct}`,
+    html: '<span></span>',
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  }),
+  wrong: L.divIcon({
+    className: `${styles.dot} ${styles.wrong}`,
+    html: '<span></span>',
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  }),
 };
-
-const colorOf = (t: Target): string =>
-  t.identified === 'correct' ? COLOR_CORRECT : t.identified === 'wrong' ? COLOR_WRONG : COLOR_IDLE;
 
 // Статические стили вынесены из рендера: при обновлении целей каждые 16 мс
 // новые объекты заставляли Leaflet заново применять setStyle к слоям.
@@ -48,7 +44,6 @@ const DIRECTION_STYLE = { color: '#0048c0', weight: 2, opacity: 0.9 };
 
 /** Длина стрелки курса цели, м */
 const DIRECTION_SIZE_M = 320;
-const DEFAULT_ZOOM = 13;
 
 // Поворот карты включён, встроенный контрол выключен — используется своя панель компаса
 const MAP_OPTIONS = { rotate: true, rotateControl: false } as const;
@@ -58,21 +53,11 @@ const RING_LABELS = [
   { text: 'Близкая · 1 км', radius: RADAR.rings.near },
   { text: 'Средняя · 3 км', radius: RADAR.rings.medium },
   { text: 'Дальняя · 7 км', radius: RADAR.rings.far },
-];
-
-const labelIconCache = new Map<string, L.DivIcon>();
-const ringLabelIcon = (text: string): L.DivIcon => {
-  let icon = labelIconCache.get(text);
-  if (!icon) {
-    icon = L.divIcon({
-      className: styles.ringLabel,
-      html: `<span>${text}</span>`,
-      iconSize: [0, 0],
-    });
-    labelIconCache.set(text, icon);
-  }
-  return icon;
-};
+].map((ring) => ({
+  ...ring,
+  position: movePoint(RADAR.center, ring.radius, 0),
+  icon: L.divIcon({ className: styles.ringLabel, html: `<span>${ring.text}</span>`, iconSize: [0, 0] }),
+}));
 
 /** Отдаёт наружу инстанс карты для панелей компаса и позиции (п.3.3.2.5, п.3.3.2.6 ТЗ). */
 const MapBridge = ({ onReady }: { onReady?: (map: L.Map) => void }) => {
@@ -89,6 +74,11 @@ const MapBridge = ({ onReady }: { onReady?: (map: L.Map) => void }) => {
   }, [map]);
 
   useEffect(() => {
+    // Leaflet по умолчанию добавляет к атрибуции свою ссылку — оставляем только источник подложки
+    map.attributionControl.setPrefix(false);
+  }, [map]);
+
+  useEffect(() => {
     // Панели (центр уведомлений) меняют ширину контейнера карты, а Leaflet отслеживает
     // только изменение окна: без invalidateSize на месте карты остаётся непрорисованная полоса.
     const observer = new ResizeObserver(() => map.invalidateSize());
@@ -99,13 +89,56 @@ const MapBridge = ({ onReady }: { onReady?: (map: L.Map) => void }) => {
   return null;
 };
 
+interface TargetMarkerProps {
+  target: Target;
+  showDirection: boolean;
+  showTrajectory: boolean;
+  onIdentify?: (targetId: string) => void;
+}
+
+const TargetMarker = memo(({ target, showDirection, showTrajectory, onIdentify }: TargetMarkerProps) => {
+  // Объект обработчиков стабилен: иначе react-leaflet переподписывает маркер на каждом кадре
+  const eventHandlers = useMemo(
+    () => (onIdentify ? { dblclick: () => onIdentify(target.id) } : {}),
+    [onIdentify, target.id],
+  );
+
+  return (
+    <>
+      <Marker
+        title={`Цель ${target.id}`}
+        position={target.position}
+        icon={DOT_ICONS[target.identified ?? 'idle']}
+        eventHandlers={eventHandlers}
+      >
+        <Tooltip direction="top" offset={[0, -8]} opacity={1}>
+          <b>Цель {target.id}</b>
+          <br />
+          {target.speed.toFixed(1)} м/с · {msToKmh(target.speed).toFixed(1)} км/ч
+          <br />
+          {formatCoordinates(target.position.lat, target.position.lng)}
+        </Tooltip>
+      </Marker>
+      {showDirection && (
+        <Polyline
+          positions={headingChevron(target.position, target.heading, DIRECTION_SIZE_M)}
+          pathOptions={DIRECTION_STYLE}
+        />
+      )}
+      {showTrajectory && <Polyline positions={target.trajectory} pathOptions={TRAJECTORY_STYLE} />}
+    </>
+  );
+});
+TargetMarker.displayName = 'TargetMarker';
+
 interface Props {
+  /** Цели передаёт страница: карта главного меню их не получает и не показывает остатки сеанса */
+  targets?: Target[];
+  onIdentify?: (targetId: string) => void;
   onReady?: (map: L.Map) => void;
 }
 
-export const RadarMap = ({ onReady }: Props) => {
-  const targets = useSimulationStore((s) => s.targets);
-  const identify = useSimulationStore((s) => s.identify);
+export const RadarMap = ({ targets = [], onIdentify, onReady }: Props) => {
   const prefs = useSettingsStore((s) => s.map);
 
   return (
@@ -115,19 +148,18 @@ export const RadarMap = ({ onReady }: Props) => {
       zoom={prefs.home?.zoom ?? DEFAULT_ZOOM}
       className={styles.map}
       zoomControl={false}
-      attributionControl={false}
     >
-      <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+      <Basemap />
 
-      <Circle center={RADAR.center} radius={RADAR.rings.near}   pathOptions={RING_STYLE} />
+      <Circle center={RADAR.center} radius={RADAR.rings.near} pathOptions={RING_STYLE} />
       <Circle center={RADAR.center} radius={RADAR.rings.medium} pathOptions={RING_STYLE} />
-      <Circle center={RADAR.center} radius={RADAR.rings.far}    pathOptions={OUTER_RING_STYLE} />
+      <Circle center={RADAR.center} radius={RADAR.rings.far} pathOptions={OUTER_RING_STYLE} />
 
       {RING_LABELS.map((ring) => (
         <Marker
           key={ring.text}
-          position={movePoint(RADAR.center as LatLng, ring.radius, 0)}
-          icon={ringLabelIcon(ring.text)}
+          position={ring.position}
+          icon={ring.icon}
           interactive={false}
           keyboard={false}
         />
@@ -142,28 +174,13 @@ export const RadarMap = ({ onReady }: Props) => {
         // п.3.3.1.3 ТЗ: цель внутри зоны игнорирования не отображается
         .filter((t) => !t.insideIgnoreZone)
         .map((t) => (
-          <Fragment key={t.id}>
-            <Marker
-              position={t.position}
-              icon={dotIcon(colorOf(t))}
-              eventHandlers={{ dblclick: () => identify(t.id) }}
-            >
-              <Tooltip direction="top" offset={[0, -8]} opacity={1}>
-                <b>Цель {t.id}</b><br />
-                {t.speed.toFixed(1)} м/с · {msToKmh(t.speed).toFixed(1)} км/ч<br />
-                {formatCoordinates(t.position.lat, t.position.lng)}
-              </Tooltip>
-            </Marker>
-            {prefs.showDirection && (
-              <Polyline
-                positions={headingChevron(t.position, t.heading, DIRECTION_SIZE_M)}
-                pathOptions={DIRECTION_STYLE}
-              />
-            )}
-            {prefs.showTrajectory && (
-              <Polyline positions={t.trajectory} pathOptions={TRAJECTORY_STYLE} />
-            )}
-          </Fragment>
+          <TargetMarker
+            key={t.id}
+            target={t}
+            showDirection={prefs.showDirection}
+            showTrajectory={prefs.showTrajectory}
+            onIdentify={onIdentify}
+          />
         ))}
     </MapContainer>
   );

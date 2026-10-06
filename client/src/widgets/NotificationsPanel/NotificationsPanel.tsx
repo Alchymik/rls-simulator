@@ -3,7 +3,7 @@ import { useRef, useState, type KeyboardEvent } from 'react';
 import { useSimulationStore } from '@/features/simulation/model/simulationStore';
 import { useUiStore } from '@/features/simulation/model/uiStore';
 import { useEventsStore } from '@/features/events/model/eventsStore';
-import type { AlarmEvent } from '@/entities/event/types';
+import type { AlarmEventSummary } from '@/entities/event/types';
 import { formatCoordinates, formatDateTime } from '@/shared/lib/format';
 import { EventPreviewModal } from './EventPreviewModal';
 import styles from './NotificationsPanel.module.css';
@@ -22,13 +22,14 @@ export const NotificationsPanel = () => {
   const toggleNotifications = useUiStore((s) => s.toggleNotifications);
 
   const events = useEventsStore((s) => s.events);
+  const clearing = useEventsStore((s) => s.clearing);
   const eventsLoading = useEventsStore((s) => s.loading);
   const eventsError = useEventsStore((s) => s.error);
   const loadEvents = useEventsStore((s) => s.load);
   const clearEvents = useEventsStore((s) => s.clear);
 
   const [tab, setTab] = useState<Tab>('detections');
-  const [preview, setPreview] = useState<AlarmEvent | null>(null);
+  const [preview, setPreview] = useState<AlarmEventSummary | null>(null);
   const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ detections: null, archive: null });
 
   const selectTab = (next: Tab) => {
@@ -86,85 +87,96 @@ export const NotificationsPanel = () => {
         ))}
       </div>
 
-      <ul
-        className={styles.list}
+      {/* role="tabpanel" на обёртке: у самого <ul> нельзя отнимать роль списка */}
+      <div
+        className={styles.tabPanel}
         id={panelId}
         role="tabpanel"
         aria-labelledby={`notifications-tab-${tab}`}
         tabIndex={0}
       >
-        {tab === 'detections' && (
-          <>
-            {items.length === 0 && (
-              <li className={styles.empty}>
-                Уведомлений нет. Они появятся, когда цель войдёт в зону обнаружения.
-              </li>
-            )}
-            {items.map((n) => (
-              <li key={n.id} className={styles.item}>
-                <div className={styles.top}>
-                  <span className={styles.title}>Цель №{n.targetId.slice(0, 3)}</span>
-                  <span className={styles.badge}>Обнаружение «{n.sector}»</span>
-                </div>
-                <div className={styles.meta}>
-                  <span>{n.speedKmh} км/ч</span>
-                  <span>{formatDateTime(n.at)}</span>
-                </div>
-                <div className={styles.coords}>{formatCoordinates(n.lat, n.lng, true)}</div>
-              </li>
-            ))}
-          </>
-        )}
+        <ul className={styles.list}>
+          {tab === 'detections' && (
+            <>
+              {items.length === 0 && (
+                <li className={styles.empty}>
+                  Уведомлений нет. Они появятся, когда цель войдёт в зону обнаружения.
+                </li>
+              )}
+              {items.map((n) => (
+                <li key={n.id} className={styles.item}>
+                  <div className={styles.top}>
+                    <span className={styles.title}>Цель {n.targetId}</span>
+                    <span className={styles.badge}>Обнаружение «{n.sector}»</span>
+                  </div>
+                  <div className={styles.meta}>
+                    <span>{n.speedKmh} км/ч</span>
+                    <span>{formatDateTime(n.at)}</span>
+                  </div>
+                  <div className={styles.coords}>{formatCoordinates(n.lat, n.lng, true)}</div>
+                </li>
+              ))}
+            </>
+          )}
 
-        {tab === 'archive' && (
-          <>
-            {eventsLoading && <li className={styles.empty}>Загрузка архива…</li>}
-            {eventsError && <li className={styles.error}>{eventsError}</li>}
-            {!eventsLoading && !eventsError && events.length === 0 && (
-              <li className={styles.empty}>
-                Архив пуст. Снимок экрана делается автоматически при обнаружении цели в зоне обнаружения.
-              </li>
-            )}
-            {events.map((e) => (
-              <li key={e.id} className={styles.item}>
-                <button
-                  type="button"
-                  className={styles.event}
-                  onClick={() => setPreview(e)}
-                  title="Открыть снимок экрана"
-                >
-                  {e.screenshot ? (
-                    <img
-                      className={styles.thumb}
-                      src={e.screenshot}
-                      alt={`Обнаружение в секторе ${e.sector}`}
-                    />
-                  ) : (
-                    <span className={styles.thumbEmpty}>нет снимка</span>
-                  )}
-                  <span className={styles.eventMeta}>
-                    <b>{formatDateTime(e.at)}</b>
-                    <span>Сектор «{e.sector}» · {e.speedKmh} км/ч</span>
-                    <span className={styles.coords}>{formatCoordinates(e.lat, e.lng)}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </>
-        )}
-      </ul>
+          {tab === 'archive' && (
+            <>
+              {eventsLoading && <li className={styles.empty}>Загрузка архива…</li>}
+              {eventsError && <li className={styles.error}>{eventsError}</li>}
+              {!eventsLoading && !eventsError && events.length === 0 && (
+                <li className={styles.empty}>
+                  Архив пуст. Снимок экрана делается автоматически при обнаружении цели в зоне обнаружения.
+                </li>
+              )}
+              {events.map((e) => (
+                <li key={e.id} className={styles.item}>
+                  <button
+                    type="button"
+                    className={styles.event}
+                    onClick={() => setPreview(e)}
+                    title="Открыть снимок экрана"
+                  >
+                    {e.thumbnail ? (
+                      <img
+                        className={styles.thumb}
+                        src={e.thumbnail}
+                        alt={`Обнаружение в секторе ${e.sector}`}
+                      />
+                    ) : (
+                      <span className={styles.thumbEmpty}>нет снимка</span>
+                    )}
+                    <span className={styles.eventMeta}>
+                      <b>{formatDateTime(e.at)}</b>
+                      <span>
+                        Сектор «{e.sector}» · {e.speedKmh} км/ч
+                      </span>
+                      <span className={styles.coords}>{formatCoordinates(e.lat, e.lng)}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </>
+          )}
+        </ul>
+      </div>
 
       {tab === 'detections' ? (
         <button className={styles.clear} onClick={clearNotifications} disabled={items.length === 0}>
           Удалить все уведомления
         </button>
       ) : (
-        <button className={styles.clear} onClick={() => void clearEvents()} disabled={events.length === 0}>
+        <button
+          className={styles.clear}
+          onClick={() => {
+            if (window.confirm('Удалить все события архива вместе со снимками?')) void clearEvents();
+          }}
+          disabled={events.length === 0 || clearing}
+        >
           Очистить архив
         </button>
       )}
 
-      {preview && <EventPreviewModal event={preview} onClose={() => setPreview(null)} />}
+      {preview && <EventPreviewModal key={preview.id} event={preview} onClose={() => setPreview(null)} />}
     </aside>
   );
 };

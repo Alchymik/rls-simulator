@@ -90,7 +90,9 @@
   border-radius: 8px;
 }
 
-.action:hover { background: #24507c; }
+.action:hover {
+  background: #24507c;
+}
 
 .hint {
   margin: 8px 0 0;
@@ -107,4 +109,6 @@
   border-radius: 8px;
 }
 
-.exit:hover { background: #96244a; }
+.exit:hover {
+  background: #96244a;
+}

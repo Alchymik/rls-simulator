@@ -1,6 +1,5 @@
-// client/src/pages/Simulation/Simulation.tsx
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useState } from 'react';
+import { Navigate, useNavigate } from 'react-router';
 import type { Map as LeafletMap } from 'leaflet';
 import { RadarMap } from '@/widgets/Map/RadarMap';
 import { MapControls } from '@/widgets/MapControls/MapControls';
@@ -10,95 +9,78 @@ import { useSimulationStore } from '@/features/simulation/model/simulationStore'
 import { useSimulationLoop } from '@/features/simulation/model/useSimulationLoop';
 import { useUiStore } from '@/features/simulation/model/uiStore';
 import { useSettingsStore } from '@/features/settings/model/settingsStore';
-import { saveSession } from '@/features/sessions/api/sessionsApi';
+import {
+  flushPendingSessions,
+  sessionQueueKey,
+  useSessionQueue,
+} from '@/features/sessions/model/pendingSession';
 import { useHotkey } from '@/shared/lib/useHotkey';
-import { buildSessionPayload } from './lib/sessionPayload';
 import styles from './Simulation.module.css';
 
 const SimulationPage = () => {
   const navigate = useNavigate();
-  const start = useSimulationStore((s) => s.start);
   const status = useSimulationStore((s) => s.status);
+  const sessionId = useSimulationStore((s) => s.sessionId);
+  const ownerId = useSimulationStore((s) => s.ownerId);
+  const targets = useSimulationStore((s) => s.targets);
+  const identify = useSimulationStore((s) => s.identify);
   const pause = useSimulationStore((s) => s.pause);
   const resume = useSimulationStore((s) => s.resume);
-  const startedAt = useSimulationStore((s) => s.startedAt);
-  const training = useSettingsStore((s) => s.training);
   const setMapPrefs = useSettingsStore((s) => s.setMap);
   const settingsMenuOpen = useUiStore((s) => s.settingsMenuOpen);
   const closeSettingsMenu = useUiStore((s) => s.closeSettingsMenu);
-
-  // Итог сохранения сеанса и сеанс, для которого окно результатов уже закрыли:
-  // startedAt уникален для каждого запуска, поэтому состояние не требуется сбрасывать вручную
-  const [save, setSave] = useState<{ startedAt: number; status: SaveStatus } | null>(null);
-  const [dismissedFor, setDismissedFor] = useState(0);
+  const queueKey = sessionQueueKey(ownerId ?? '', sessionId);
+  const pending = useSessionQueue((s) =>
+    s.entries.find((entry) => entry.payload.sessionId === sessionId && entry.userId === ownerId),
+  );
+  const saving = useSessionQueue((s) => s.saving[queueKey] !== undefined);
+  const saved = useSessionQueue((s) => s.saved.includes(queueKey));
+  const storageError = useSessionQueue((s) => s.storageError);
+  const [dismissedFor, setDismissedFor] = useState('');
   const [map, setMap] = useState<LeafletMap | null>(null);
   useSimulationLoop();
-
-  // Параметры сеанса берутся из окна «Настройки тренировки» (п.3.3 ТЗ, п.2)
-  useEffect(() => {
-    start(training);
-  }, [start, training]);
-
-  // Сохранение результатов сеанса для раздела «Профиль» (п.3.3 ТЗ, п.7)
-  useEffect(() => {
-    if (status !== 'finished') return;
-    const s = useSimulationStore.getState();
-    saveSession(buildSessionPayload(s))
-      .then(() => setSave({ startedAt: s.startedAt, status: 'saved' }))
-      .catch(() => setSave({ startedAt: s.startedAt, status: 'error' }));
-  }, [status]);
-
-  // Выход из режима (в том числе через боковое меню) не должен терять результаты сеанса
-  useEffect(
-    () => () => {
-      const s = useSimulationStore.getState();
-      if (s.status !== 'running' && s.status !== 'paused') return;
-      if (s.stats.markedTotal > 0) {
-        void saveSession(buildSessionPayload(s)).catch(() => undefined);
-      }
-      s.reset();
-    },
-    [],
-  );
-
-  // Горячие клавиши режима тренировки (п.2.3 ТЗ)
   useHotkey('Space', () => {
     if (status === 'running') pause();
     else if (status === 'paused') resume();
   });
-  useHotkey('Escape', () => {
-    if (settingsMenuOpen) closeSettingsMenu();
-  }, settingsMenuOpen);
 
-  const showResults = status === 'finished' && dismissedFor !== startedAt;
-  const saveStatus: SaveStatus = save?.startedAt === startedAt ? save.status : 'pending';
-
+  if (status === 'idle') return <Navigate to="/" replace />;
+  const saveStatus: SaveStatus = saved
+    ? 'saved'
+    : saving
+      ? 'pending'
+      : pending?.error || storageError
+        ? 'error'
+        : 'pending';
   const saveHome = () => {
     if (!map) return;
     const center = map.getCenter();
     setMapPrefs({ home: { lat: center.lat, lng: center.lng, zoom: map.getZoom() } });
   };
-
   const exitToMenu = () => {
+    useSimulationStore.getState().finish();
     closeSettingsMenu();
-    // Сеанс завершает и сохраняет очистка эффекта при размонтировании страницы
     void navigate('/');
   };
 
   return (
     <div className={styles.root}>
-      <RadarMap onReady={setMap} />
+      <RadarMap targets={targets} onIdentify={status === 'running' ? identify : undefined} onReady={setMap} />
       <MapControls map={map} />
       {settingsMenuOpen && (
-        <SimulationSettingsMenu
-          onClose={closeSettingsMenu}
-          onExit={exitToMenu}
-          onSaveHome={saveHome}
+        <SimulationSettingsMenu onClose={closeSettingsMenu} onExit={exitToMenu} onSaveHome={saveHome} />
+      )}
+      {status === 'finished' && dismissedFor !== sessionId && (
+        <ResultsModal
+          saveStatus={saveStatus}
+          error={pending?.error ?? storageError}
+          onRetry={() => {
+            if (ownerId) void flushPendingSessions(ownerId);
+          }}
+          onClose={() => setDismissedFor(sessionId)}
         />
       )}
-      {showResults && <ResultsModal saveStatus={saveStatus} onClose={() => setDismissedFor(startedAt)} />}
     </div>
   );
 };
-
 export default SimulationPage;

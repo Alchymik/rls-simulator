@@ -8,6 +8,7 @@ export interface ReactionPoint {
 }
 
 export interface SessionResult {
+  sessionId: string;
   id: string;
   userId: string;
   mode: 'training';

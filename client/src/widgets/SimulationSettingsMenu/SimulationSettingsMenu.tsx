@@ -1,5 +1,6 @@
 // client/src/widgets/SimulationSettingsMenu/SimulationSettingsMenu.tsx
 import { useState } from 'react';
+import { Dialog } from '@/shared/ui/Dialog';
 import { useSettingsStore } from '@/features/settings/model/settingsStore';
 import styles from './SimulationSettingsMenu.module.css';
 
@@ -22,11 +23,13 @@ export const SimulationSettingsMenu = ({ onClose, onExit, onSaveHome }: Props) =
   };
 
   return (
-    <div className={styles.backdrop} role="presentation" onClick={onClose}>
+    <Dialog className={styles.backdrop} onClose={onClose} labelledBy="simulation-settings-title">
       <aside className={styles.panel} onClick={(e) => e.stopPropagation()}>
         <header className={styles.header}>
-          <h3>Настройки симуляции</h3>
-          <button className={styles.close} onClick={onClose} aria-label="Закрыть настройки симуляции">✕</button>
+          <h3 id="simulation-settings-title">Настройки симуляции</h3>
+          <button className={styles.close} onClick={onClose} aria-label="Закрыть настройки симуляции">
+            ✕
+          </button>
         </header>
 
         <section className={styles.block}>
@@ -73,8 +76,10 @@ export const SimulationSettingsMenu = ({ onClose, onExit, onSaveHome }: Props) =
           </label>
         </section>
 
-        <button className={styles.exit} onClick={onExit}>Выйти из режима «Тренировка»</button>
+        <button className={styles.exit} onClick={onExit}>
+          Выйти из режима «Тренировка»
+        </button>
       </aside>
-    </div>
+    </Dialog>
   );
 };

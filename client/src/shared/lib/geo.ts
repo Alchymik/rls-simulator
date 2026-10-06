@@ -1,5 +1,8 @@
 // client/src/shared/lib/geo.ts
-import type { LatLng } from '@/entities/target/types';
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
 
 const R = 6_371_000;
 const toRad = (d: number) => (d * Math.PI) / 180;
@@ -9,8 +12,7 @@ export const distanceMeters = (a: LatLng, b: LatLng): number => {
   const dLat = toRad(b.lat - a.lat);
   const dLng = toRad(b.lng - a.lng);
   const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+    Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 };
 
@@ -19,9 +21,7 @@ export const movePoint = (p: LatLng, distance: number, bearingDeg: number): LatL
   const brg = toRad(bearingDeg);
   const lat1 = toRad(p.lat);
   const lng1 = toRad(p.lng);
-  const lat2 = Math.asin(
-    Math.sin(lat1) * Math.cos(ang) + Math.cos(lat1) * Math.sin(ang) * Math.cos(brg),
-  );
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(ang) + Math.cos(lat1) * Math.sin(ang) * Math.cos(brg));
   const lng2 =
     lng1 +
     Math.atan2(
@@ -36,8 +36,7 @@ export const bearingTo = (a: LatLng, b: LatLng): number => {
   const φ2 = toRad(b.lat);
   const Δλ = toRad(b.lng - a.lng);
   const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x =
-    Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 };
 

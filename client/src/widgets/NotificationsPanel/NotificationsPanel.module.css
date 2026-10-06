@@ -57,6 +57,14 @@
   color: #fff !important;
 }
 
+/* Обёртка с ролью tabpanel растягивается так же, как раньше список */
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .list {
   list-style: none;
   margin: 0;
@@ -81,7 +89,10 @@
   margin-bottom: 4px;
 }
 
-.title { font-weight: 600; font-size: 13px; }
+.title {
+  font-weight: 600;
+  font-size: 13px;
+}
 
 .badge {
   display: inline-flex;
@@ -179,7 +190,9 @@
   border-radius: 8px;
 }
 
-.clear:hover:not(:disabled) { background: #c62828; }
+.clear:hover:not(:disabled) {
+  background: #c62828;
+}
 
 .clear:disabled {
   opacity: 0.45;

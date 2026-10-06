@@ -2,10 +2,9 @@
 import { useEffect, useState } from 'react';
 import type { Map as LeafletMap } from 'leaflet';
 import { useSettingsStore } from '@/features/settings/model/settingsStore';
-import { RADAR } from '@/features/simulation/lib/config';
+import { DEFAULT_ZOOM, RADAR } from '@/features/simulation/lib/config';
 import styles from './MapControls.module.css';
 
-const DEFAULT_ZOOM = 13;
 const ROTATE_STEP = 15;
 
 /** Панель позиции (п.3.3.2.5) и панель компаса (п.3.3.2.6) режима тренировки. */

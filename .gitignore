@@ -1,5 +1,8 @@
 node_modules/
 dist/
-
-.github
-
+*.tsbuildinfo
+dist-desktop/
+release/
+.local-data/
+playwright-report/
+test-results/

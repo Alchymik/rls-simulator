@@ -4,10 +4,17 @@ import { useLocation, useNavigate } from 'react-router';
 import { useAuthStore } from '@/features/auth/model/authStore';
 import styles from './Login.module.css';
 
-interface Form { login: string; password: string; }
+interface Form {
+  login: string;
+  password: string;
+}
 
 const LoginPage = () => {
-  const { register, handleSubmit, formState: { errors } } = useForm<Form>();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<Form>();
   const login = useAuthStore((s) => s.login);
   const error = useAuthStore((s) => s.error);
   const loading = useAuthStore((s) => s.loading);
@@ -27,11 +34,7 @@ const LoginPage = () => {
 
   return (
     <div className={styles.page}>
-      <form
-        className={styles.card}
-        noValidate
-        onSubmit={(event) => void handleSubmit(onSubmit)(event)}
-      >
+      <form className={styles.card} noValidate onSubmit={(event) => void handleSubmit(onSubmit)(event)}>
         <div className={styles.logo}>
           <span>Центр</span>
           <b>2401</b>
@@ -53,10 +56,24 @@ const LoginPage = () => {
           aria-invalid={Boolean(errors.password)}
           {...register('password', { required: true })}
         />
-        {errors.login && <div className={styles.err} role="alert">Введите логин</div>}
-        {errors.password && <div className={styles.err} role="alert">Введите пароль</div>}
-        {error && <div className={styles.err} role="alert">{error}</div>}
-        <button className={styles.btn} disabled={loading}>{loading ? 'Вход…' : 'Войти'}</button>
+        {errors.login && (
+          <div className={styles.err} role="alert">
+            Введите логин
+          </div>
+        )}
+        {errors.password && (
+          <div className={styles.err} role="alert">
+            Введите пароль
+          </div>
+        )}
+        {error && (
+          <div className={styles.err} role="alert">
+            {error}
+          </div>
+        )}
+        <button className={styles.btn} disabled={loading}>
+          {loading ? 'Вход…' : 'Войти'}
+        </button>
       </form>
     </div>
   );

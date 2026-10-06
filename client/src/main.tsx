@@ -5,6 +5,8 @@ import 'leaflet/dist/leaflet.css';
 import '@/shared/styles/global.css';
 import { App } from '@/app/App';
 import { ErrorBoundary } from '@/app/ErrorBoundary';
+import '@/app/resetOnSignOut';
+import { installTrainingPersistence } from '@/app/trainingPersistence';
 
 // leaflet-rotate — классический плагин Leaflet: он обращается к глобальному `L`
 // (в его исходниках нет ни одного import). Поэтому сначала публикуем Leaflet в window,
@@ -12,7 +14,10 @@ import { ErrorBoundary } from '@/app/ErrorBoundary';
 type LeafletModule = typeof leaflet;
 (window as unknown as { L?: LeafletModule }).L = leaflet;
 
-void import('leaflet-rotate').then(() => {
+const disposePersistence = installTrainingPersistence();
+if (import.meta.hot) import.meta.hot.dispose(disposePersistence);
+
+const render = () =>
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <ErrorBoundary>
@@ -20,4 +25,9 @@ void import('leaflet-rotate').then(() => {
       </ErrorBoundary>
     </React.StrictMode>,
   );
+
+// Без catch сбой загрузки плагина оставлял белый экран без сообщения
+import('leaflet-rotate').then(render, (e: unknown) => {
+  console.error('[map] не удалось загрузить поворот карты', e);
+  render();
 });

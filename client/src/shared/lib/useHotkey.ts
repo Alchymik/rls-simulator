@@ -21,7 +21,14 @@ export const useHotkey = (code: string, handler: () => void, enabled = true) => 
         target?.tagName === 'INPUT' ||
         target?.tagName === 'SELECT' ||
         target?.tagName === 'TEXTAREA';
-      if (isEditing || event.code !== code || event.repeat) return;
+      if (
+        document.querySelector('body > dialog[open]') ||
+        target?.closest('button, a') ||
+        isEditing ||
+        event.code !== code ||
+        event.repeat
+      )
+        return;
 
       event.preventDefault();
       handlerRef.current();

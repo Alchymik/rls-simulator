@@ -2,24 +2,38 @@
   "name": "rls-simulator",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.18 <23"
+  },
   "workspaces": [
     "client",
     "server"
   ],
   "scripts": {
     "dev": "concurrently -n client,server -c cyan,magenta \"npm run dev -w client\" \"npm run dev -w server\"",
-    "build": "npm run build -w client && npm run build -w server",
+    "build": "npm run build -w client && npm run build -w server && node scripts/generate-notices.mjs",
     "lint": "npm run lint -w client && npm run lint -w server",
     "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
     "test": "vitest run",
-    "desktop": "npm run build && electron desktop/main.cjs"
+    "desktop": "npm run desktop:build && electron desktop/main.cjs",
+    "desktop:build": "npm run build && node scripts/build-desktop.mjs",
+    "desktop:package": "npm run desktop:build && electron-builder --win nsis --x64 --config electron-builder.config.cjs",
+    "desktop:package:zip": "npm run desktop:build && electron-builder --win zip --x64 --config electron-builder.config.cjs",
+    "test:desktop": "node scripts/build-desktop.mjs && node --test desktop/main.smoke.cjs desktop/backend.smoke.mjs",
+    "format": "prettier --write client/src server/src desktop scripts tests *.json *.md *.ts *.cjs .github",
+    "format:check": "prettier --check client/src server/src desktop scripts tests *.json *.md *.ts *.cjs .github",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "concurrently": "^9.0.0",
     "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
     "eslint": "^10.12.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.9.9",
     "typescript-eslint": "^8.71.0",
     "vitest": "^5.0.3"
   },
@@ -27,5 +41,8 @@
     "esbuild@0.21.5": true,
     "esbuild@0.28.2": true,
     "electron@44.5.1": true
-  }
+  },
+  "version": "1.0.0",
+  "description": "Тренажёр оператора РЛС",
+  "main": "desktop/main.cjs"
 }

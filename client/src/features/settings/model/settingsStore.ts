@@ -1,35 +1,23 @@
-// client/src/features/settings/model/settingsStore.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { clampTraining, DEFAULT_TRAINING, type TrainingSettings } from '@/entities/session/model/training';
 
 export interface HomePosition {
   lat: number;
   lng: number;
   zoom: number;
 }
-
-/** Параметры сеанса, настраиваемые в окне «Настройки тренировки» (п.3.3 ТЗ, п.2). */
-export interface TrainingSettings {
-  durationSec: number;
-  maxConcurrent: number;
-  spawnEveryMs: number;
-}
-
 export interface MapPreferences {
-  /** null — домашняя позиция совпадает с центром РЛС */
   home: HomePosition | null;
   showTrajectory: boolean;
   showDirection: boolean;
   showDetectionZone: boolean;
   showIgnoreZone: boolean;
 }
-
 export interface SoundSettings {
   enabled: boolean;
-  /** 0..1 */
   volume: number;
 }
-
 interface SettingsState {
   map: MapPreferences;
   training: TrainingSettings;
@@ -38,56 +26,85 @@ interface SettingsState {
   setTraining: (patch: Partial<TrainingSettings>) => void;
   setSound: (patch: Partial<SoundSettings>) => void;
 }
-
-// Значения по умолчанию для окна настроек тренировки: maxConcurrent = 20 согласно п.3.3.1.4.3 ТЗ
-export const DEFAULT_TRAINING: TrainingSettings = {
-  durationSec: 120,
-  maxConcurrent: 20,
-  spawnEveryMs: 1500,
+const defaults = () => ({
+  map: {
+    home: null,
+    showTrajectory: true,
+    showDirection: false,
+    showDetectionZone: true,
+    showIgnoreZone: true,
+  } as MapPreferences,
+  training: { ...DEFAULT_TRAINING },
+  sound: { enabled: true, volume: 0.5 },
+});
+const object = (value: unknown): Record<string, unknown> =>
+  value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+const finite = (value: unknown, fallback: number) =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+const boolean = (value: unknown, fallback: boolean) => (typeof value === 'boolean' ? value : fallback);
+const normalize = (persisted: unknown) => {
+  const saved = object(persisted);
+  const map = object(saved.map);
+  const sound = object(saved.sound);
+  const training = object(saved.training);
+  const initial = defaults();
+  const home = object(map.home);
+  const hasHome =
+    typeof home.lat === 'number' &&
+    Math.abs(home.lat) <= 90 &&
+    typeof home.lng === 'number' &&
+    Math.abs(home.lng) <= 180 &&
+    typeof home.zoom === 'number' &&
+    home.zoom >= 1 &&
+    home.zoom <= 18;
+  return {
+    map: {
+      home: hasHome ? { lat: home.lat as number, lng: home.lng as number, zoom: home.zoom as number } : null,
+      showTrajectory: boolean(map.showTrajectory, true),
+      showDirection: boolean(map.showDirection, false),
+      showDetectionZone: boolean(map.showDetectionZone, true),
+      showIgnoreZone: boolean(map.showIgnoreZone, true),
+    },
+    training: clampTraining({
+      durationSec: finite(training.durationSec, initial.training.durationSec),
+      maxConcurrent: finite(training.maxConcurrent, initial.training.maxConcurrent),
+      spawnEveryMs: finite(training.spawnEveryMs, initial.training.spawnEveryMs),
+    }),
+    sound: {
+      enabled: boolean(sound.enabled, true),
+      volume: Math.min(1, Math.max(0, finite(sound.volume, 0.5))),
+    },
+  };
 };
-
-export const TRAINING_LIMITS = {
-  durationSec: { min: 30, max: 3600 },
-  maxConcurrent: { min: 1, max: 20 },
-  spawnEveryMs: { min: 300, max: 10_000 },
-} as const;
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
-      map: {
-        home: null,
-        showTrajectory: true,
-        // Направление по умолчанию показывает след траектории; шеврон курса включается в настройках
-        showDirection: false,
-        showDetectionZone: true,
-        showIgnoreZone: true,
-      },
-      training: DEFAULT_TRAINING,
-      sound: { enabled: true, volume: 0.5 },
-      setMap: (patch) => set((s) => ({ map: { ...s.map, ...patch } })),
-      setTraining: (patch) => set((s) => ({ training: { ...s.training, ...patch } })),
-      setSound: (patch) => set((s) => ({ sound: { ...s.sound, ...patch } })),
+      ...defaults(),
+      setMap: (patch) => set((state) => ({ map: normalize({ map: { ...state.map, ...patch } }).map })),
+      setTraining: (patch) => set((state) => ({ training: clampTraining({ ...state.training, ...patch }) })),
+      setSound: (patch) =>
+        set((state) => ({ sound: normalize({ sound: { ...state.sound, ...patch } }).sound })),
     }),
     {
-      name: 'rls-settings',
+      name: 'rls-settings:guest',
       version: 2,
-      // Версия 2: направление движения показывает след траектории, шеврон курса выключен по умолчанию
-      migrate: (persisted) => {
-        const saved = (persisted ?? {}) as Partial<SettingsState>;
-        return { ...saved, map: { ...saved.map, showDirection: false, showTrajectory: true } };
-      },
-      // Сохранённое состояние прошлых версий не содержит новых полей: приводим его к текущей
-      // форме, а секции сливаем в merge, иначе часть карты перестанет отображаться
-      merge: (persisted, current) => {
-        const saved = (persisted ?? {}) as Partial<SettingsState>;
-        return {
-          ...current,
-          map: { ...current.map, ...saved.map },
-          training: { ...current.training, ...saved.training },
-          sound: { ...current.sound, ...saved.sound },
-        };
-      },
+      migrate: normalize,
+      merge: (saved, current) => ({ ...current, ...normalize(saved) }),
     },
   ),
 );
+
+/** Change storage namespace before exposing an account's screens. */
+export const loadSettingsForUser = (userId: string | null) => {
+  const name = `rls-settings:${userId ?? 'guest'}`;
+  let saved: unknown;
+  try {
+    const raw = localStorage.getItem(name);
+    saved = raw ? (JSON.parse(raw) as { state?: unknown }).state : undefined;
+  } catch {
+    saved = undefined;
+  }
+  useSettingsStore.persist.setOptions({ name });
+  useSettingsStore.setState(normalize(saved));
+};

@@ -9,7 +9,10 @@ type SimulationState = ReturnType<typeof useSimulationStore.getState>;
  * и при выходе из режима тренировки, чтобы результаты не терялись (п.3.3 ТЗ, п.7).
  */
 export const buildSessionPayload = (state: SimulationState): SaveSessionPayload => ({
+  sessionId: state.sessionId,
+  finishedAt: state.finishedAt ?? Date.now(),
   mode: 'training',
+  startedAt: state.startedAt,
   durationSec: state.elapsedSec,
   markedTotal: state.stats.markedTotal,
   correct: state.stats.correct,

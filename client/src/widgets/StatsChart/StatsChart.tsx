@@ -47,7 +47,11 @@ export const StatsChart = ({ sessions }: { sessions: SessionResult[] }) => {
         <CartesianGrid strokeDasharray="3 3" stroke="#d9dee6" />
         <XAxis dataKey="idx" stroke="#5b6b7c" />
         <YAxis stroke="#5b6b7c" unit=" с" />
-        <Tooltip contentStyle={{ background: '#eef1f5', border: '1px solid #d9dee6' }} />
+        <Tooltip
+          contentStyle={{ background: '#eef1f5', border: '1px solid #d9dee6' }}
+          formatter={(value) => [`${String(value)} с`, 'Время определения']}
+          labelFormatter={(idx) => (typeof idx === 'number' ? `Определение №${idx}` : '')}
+        />
         <Bar dataKey="reaction" shape={renderReactionBar} />
       </BarChart>
     </ResponsiveContainer>

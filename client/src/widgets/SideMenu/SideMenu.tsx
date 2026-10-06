@@ -5,8 +5,7 @@ import { useAuthStore } from '@/features/auth/model/authStore';
 import { ROLE_LABEL } from '@/entities/user/model/roleLabels';
 import styles from './SideMenu.module.css';
 
-const linkClass = ({ isActive }: { isActive: boolean }) =>
-  clsx(styles.link, isActive && styles.active);
+const linkClass = ({ isActive }: { isActive: boolean }) => clsx(styles.link, isActive && styles.active);
 
 export const SideMenu = () => {
   const user = useAuthStore((s) => s.user);
@@ -16,9 +15,15 @@ export const SideMenu = () => {
       <h2 className={styles.title}>Меню</h2>
 
       {/* Разделы основного меню по п.3.2 ТЗ, п.2 */}
-      <NavLink to="/" end className={linkClass}>▶ Режим «Тренировка»</NavLink>
-      <NavLink to="/profile" className={linkClass}>👤 Профиль</NavLink>
-      <NavLink to="/settings" className={linkClass}>⚙ Настройки</NavLink>
+      <NavLink to="/" end className={linkClass}>
+        ▶ Режим «Тренировка»
+      </NavLink>
+      <NavLink to="/profile" className={linkClass}>
+        👤 Профиль
+      </NavLink>
+      <NavLink to="/settings" className={linkClass}>
+        ⚙ Настройки
+      </NavLink>
 
       <div className={styles.footer}>
         <NavLink to="/profile" className={styles.user}>

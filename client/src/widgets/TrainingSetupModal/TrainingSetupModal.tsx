@@ -1,11 +1,8 @@
 // client/src/widgets/TrainingSetupModal/TrainingSetupModal.tsx
 import { useState, type FormEvent } from 'react';
-import {
-  TRAINING_LIMITS,
-  type TrainingSettings,
-} from '@/features/settings/model/settingsStore';
+import { clampTraining, TRAINING_LIMITS, type TrainingSettings } from '@/entities/session/model/training';
 import { formatDuration } from '@/shared/lib/units';
-import { useHotkey } from '@/shared/lib/useHotkey';
+import { Dialog } from '@/shared/ui/Dialog';
 import styles from './TrainingSetupModal.module.css';
 
 interface Props {
@@ -14,33 +11,18 @@ interface Props {
   onStart: (settings: TrainingSettings) => void;
 }
 
-const clamp = (value: number, min: number, max: number) =>
-  Number.isFinite(value) ? Math.min(Math.max(Math.round(value), min), max) : min;
-
 /** Всплывающее окно «Настройки тренировки» перед началом сеанса (п.3.3 ТЗ, п.2). */
 export const TrainingSetupModal = ({ initial, onCancel, onStart }: Props) => {
   const [draft, setDraft] = useState(initial);
 
-  useHotkey('Escape', onCancel);
-
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    onStart({
-      durationSec: clamp(draft.durationSec, TRAINING_LIMITS.durationSec.min, TRAINING_LIMITS.durationSec.max),
-      maxConcurrent: clamp(draft.maxConcurrent, TRAINING_LIMITS.maxConcurrent.min, TRAINING_LIMITS.maxConcurrent.max),
-      spawnEveryMs: clamp(draft.spawnEveryMs, TRAINING_LIMITS.spawnEveryMs.min, TRAINING_LIMITS.spawnEveryMs.max),
-    });
+    onStart(clampTraining(draft));
   };
 
   return (
-    <div className={styles.backdrop}>
-      <form
-        className={styles.modal}
-        onSubmit={submit}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="training-setup-title"
-      >
+    <Dialog className={styles.backdrop} onClose={onCancel} labelledBy="training-setup-title">
+      <form className={styles.modal} onSubmit={submit}>
         <h3 id="training-setup-title">Настройки тренировки</h3>
         <label className={styles.field}>
           <span>Ограничение по времени, с</span>
@@ -82,10 +64,14 @@ export const TrainingSetupModal = ({ initial, onCancel, onStart }: Props) => {
         </label>
 
         <div className={styles.actions}>
-          <button className={styles.cancel} type="button" onClick={onCancel}>Отмена</button>
-          <button className={styles.start} type="submit">Начать</button>
+          <button className={styles.cancel} type="button" onClick={onCancel}>
+            Отмена
+          </button>
+          <button className={styles.start} type="submit">
+            Начать
+          </button>
         </div>
       </form>
-    </div>
+    </Dialog>
   );
 };

@@ -17,13 +17,15 @@ const makeTarget = (id: string, at: LatLng, type: TargetType = 'uav'): Target =>
   trajectory: [at],
   speed: 30,
   heading: 90,
-  bornAt: performance.now(),
-  lifespanMs: 60_000,
+  turnRate: 0,
+  bornAtSec: 0,
+  lifespanSec: 60,
+  firstSeenSec: 0,
   notified: false,
   identified: null,
   insideIgnoreZone: false,
   ignored: false,
-  sampleTick: 0,
+  sinceSampleSec: 0,
 });
 
 const store = () => useSimulationStore.getState();
@@ -31,7 +33,6 @@ const store = () => useSimulationStore.getState();
 /** maxConcurrent: 0 — отключает спавн, чтобы тесты были детерминированными */
 const startDeterministic = () => {
   store().start({ durationSec: 3600, maxConcurrent: 0, spawnEveryMs: 60_000 });
-  useSimulationStore.setState({ stats: { ...store().stats, lastSpawnAt: performance.now() } });
 };
 
 describe('simulationStore', () => {
@@ -128,7 +129,52 @@ describe('simulationStore', () => {
     expect(store().targets[0]?.position).toEqual(before);
   });
 
-  it('очищает уведомления', () => {    useSimulationStore.setState({ targets: [makeTarget('t5', centroid(DETECTION_ZONE))] });
+  it('не теряет цели и не наращивает время реакции за паузу', () => {
+    useSimulationStore.setState({
+      targets: [{ ...makeTarget('bird', centroid(DETECTION_ZONE), 'bird'), lifespanSec: 5 }],
+    });
+    store().pause();
+    // На паузе часы симуляции стоят, сколько бы ни прошло реального времени
+    for (let frame = 0; frame < 600; frame += 1) store().tick(0.1);
+    store().resume();
+    store().tick(0.016);
+
+    expect(store().targets).toHaveLength(1);
+  });
+
+  it('не засчитывает отметку на паузе и после окончания сеанса', () => {
+    useSimulationStore.setState({ targets: [makeTarget('t7', centroid(DETECTION_ZONE))] });
+
+    store().pause();
+    store().identify('t7');
+    store().finish();
+    store().identify('t7');
+
+    expect(store().stats.markedTotal).toBe(0);
+  });
+
+  it('считает время реакции с момента, когда цель стала видна', () => {
+    useSimulationStore.setState({ targets: [makeTarget('t8', centroid(DETECTION_ZONE))], elapsedSec: 2 });
+    store().identify('t8');
+
+    expect(store().stats.reactionSamples[0]?.reactionMs).toBe(2000);
+  });
+
+  it('создаёт уведомления для всех целей, вошедших в зону за один кадр', () => {
+    useSimulationStore.setState({
+      targets: [makeTarget('a', centroid(DETECTION_ZONE)), makeTarget('b', centroid(DETECTION_ZONE))],
+    });
+    store().tick(0.016);
+
+    expect(
+      store()
+        .notifications.map((n) => n.targetId)
+        .sort(),
+    ).toEqual(['a', 'b']);
+  });
+
+  it('очищает уведомления', () => {
+    useSimulationStore.setState({ targets: [makeTarget('t5', centroid(DETECTION_ZONE))] });
     store().tick(0.016);
 
     store().clearNotifications();

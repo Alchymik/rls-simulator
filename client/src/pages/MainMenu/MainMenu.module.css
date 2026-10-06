@@ -47,4 +47,6 @@
   font-size: 15px;
 }
 
-.launch:hover { background: #0048c0; }
+.launch:hover {
+  background: #0048c0;
+}

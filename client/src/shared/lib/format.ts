@@ -2,8 +2,7 @@
 const LOCALE = 'ru-RU';
 
 /** Дата и время «05.10.2026, 19:35:09». */
-export const formatDateTime = (value: Date | number): string =>
-  new Date(value).toLocaleString(LOCALE);
+export const formatDateTime = (value: Date | number): string => new Date(value).toLocaleString(LOCALE);
 
 /** Время «19:35». */
 export const formatTime = (value: Date | number): string =>
@@ -16,5 +15,10 @@ export const formatDate = (value: Date | number): string =>
 /** Координаты цели: «59.550000, 30.800000» либо с указанием полушарий. */
 export const formatCoordinates = (lat: number, lng: number, withHemisphere = false): string =>
   withHemisphere
-    ? `${lat.toFixed(6)} с.ш., ${lng.toFixed(6)} в.д.`
+    ? `${Math.abs(lat).toFixed(6)} ${lat >= 0 ? 'с.ш.' : 'ю.ш.'}, ${Math.abs(lng).toFixed(6)} ${lng >= 0 ? 'в.д.' : 'з.д.'}`
     : `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+const secondsFormat = new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/** Короткий интервал «4,2 с»: время реакции измеряется долями секунды, формат мм:сс его теряет. */
+export const formatSeconds = (sec: number): string => `${secondsFormat.format(sec)} с`;

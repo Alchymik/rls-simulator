@@ -1,5 +1,5 @@
 // client/src/features/auth/api/authApi.ts
-import { api } from '@/shared/api/client';
+import { api, authRequestConfig, captureAuthContext } from '@/shared/api/client';
 import type { User } from '@/entities/user/types';
 
 export interface LoginResponse {
@@ -10,7 +10,8 @@ export interface LoginResponse {
 export const loginRequest = (login: string, password: string) =>
   api.post<LoginResponse>('/auth/login', { login, password }).then((r) => r.data);
 
-export const meRequest = () => api.get<User>('/auth/me').then((r) => r.data);
+export const meRequest = (context = captureAuthContext()) =>
+  api.get<User>('/auth/me', authRequestConfig(context)).then((r) => r.data);
 
 export const changePasswordRequest = (currentPassword: string, newPassword: string) =>
-  api.post<void>('/auth/password', { currentPassword, newPassword }).then(() => undefined);
+  api.post<LoginResponse>('/auth/password', { currentPassword, newPassword }).then((r) => r.data);

@@ -27,7 +27,11 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.label { letter-spacing: 0.02em; }
+.label {
+  letter-spacing: 0.02em;
+}

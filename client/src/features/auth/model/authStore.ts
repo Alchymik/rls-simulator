@@ -1,20 +1,26 @@
-// client/src/features/auth/model/authStore.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { User } from '@/entities/user/types';
-import { apiErrorMessage, setAuthHandlers } from '@/shared/api/client';
-import { loginRequest, meRequest } from '../api/authApi';
+import {
+  apiErrorMessage,
+  captureAuthContext,
+  invalidateAuthRequests,
+  isAuthContextCurrent,
+  isRequestCancelled,
+  setAuthHandlers,
+} from '@/shared/api/client';
+import { changePasswordRequest, loginRequest, meRequest } from '../api/authApi';
 
 interface State {
   user: User | null;
   token: string | null;
-  /** Сессия подтверждена сервером в текущем запуске приложения */
   verified: boolean;
   loading: boolean;
   error: string | null;
   login: (login: string, password: string) => Promise<void>;
   verifySession: () => Promise<void>;
   logout: () => void;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 export const useAuthStore = create<State>()(
@@ -25,47 +31,53 @@ export const useAuthStore = create<State>()(
       verified: false,
       loading: false,
       error: null,
-
       login: async (login, password) => {
+        if (get().loading) return;
         set({ loading: true, error: null });
+        const context = captureAuthContext();
         try {
-          const { user, token } = await loginRequest(login, password);
-          set({ user, token, verified: true, loading: false });
-        } catch (e: unknown) {
-          set({ error: apiErrorMessage(e, 'Ошибка входа'), loading: false });
-          throw e;
+          const session = await loginRequest(login, password);
+          if (!isAuthContextCurrent(context)) return;
+          set({ ...session, verified: true, loading: false });
+        } catch (error) {
+          if (isAuthContextCurrent(context) && !isRequestCancelled(error)) {
+            set({ error: apiErrorMessage(error, 'Ошибка входа'), loading: false });
+            throw error;
+          }
         }
       },
-
-      /**
-       * Проверка сохранённого токена при запуске приложения: сервер держит данные
-       * в памяти, поэтому токен прошлого запуска может быть уже недействителен.
-       */
       verifySession: async () => {
-        const { token, logout } = get();
-        if (!token) return;
+        if (!get().token) return;
+        const context = captureAuthContext();
         try {
-          set({ user: await meRequest(), verified: true });
-        } catch {
-          // 401 уже обработан интерцептором — завершаем сессию локально
-          logout();
+          const user = await meRequest(context);
+          if (isAuthContextCurrent(context)) set({ user, verified: true, error: null });
+        } catch (error) {
+          if (isAuthContextCurrent(context) && !isRequestCancelled(error)) {
+            set({ error: apiErrorMessage(error, 'Сервер недоступен, повторяем попытку…') });
+          }
         }
       },
-
-      logout: () => set({ user: null, token: null, verified: false }),
+      logout: () => set({ user: null, token: null, verified: false, loading: false, error: null }),
+      changePassword: async (currentPassword, newPassword) => {
+        const context = captureAuthContext();
+        const session = await changePasswordRequest(currentPassword, newPassword);
+        if (isAuthContextCurrent(context)) set({ ...session, verified: true, error: null });
+      },
     }),
     {
       name: 'rls-auth',
       version: 1,
-      // Хранится только сессия: признак проверки должен сбрасываться при каждом запуске
       partialize: (state) => ({ user: state.user, token: state.token }),
       migrate: (persisted) => persisted as Pick<State, 'user' | 'token'>,
     },
   ),
 );
 
-// Связываем HTTP-клиент с авторизацией здесь, а не внутри shared/api (иначе цикл модулей)
 setAuthHandlers({
   getToken: () => useAuthStore.getState().token,
   onUnauthorized: () => useAuthStore.getState().logout(),
+});
+useAuthStore.subscribe((state, prev) => {
+  if (state.token !== prev.token || state.user?.id !== prev.user?.id) invalidateAuthRequests();
 });

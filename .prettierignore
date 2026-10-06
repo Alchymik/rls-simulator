@@ -1,0 +1,8 @@
+node_modules
+**/dist
+**/dist-desktop
+release
+.local-data
+playwright-report
+test-results
+package-lock.json

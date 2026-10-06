@@ -33,12 +33,22 @@
   border-bottom: 1px dashed #e0e6ed;
 }
 
-.row:last-of-type { border-bottom: none; }
-.row span { color: #4a5568; }
-.row b { font-variant-numeric: tabular-nums; }
+.row:last-of-type {
+  border-bottom: none;
+}
+.row span {
+  color: #4a5568;
+}
+.row b {
+  font-variant-numeric: tabular-nums;
+}
 
-.green { color: #2e7d32; }
-.red { color: #c62828; }
+.green {
+  color: #2e7d32;
+}
+.red {
+  color: #c62828;
+}
 
 .saved,
 .saveError {
@@ -47,8 +57,12 @@
   text-align: center;
 }
 
-.saved { color: #2e7d32; }
-.saveError { color: #c62828; }
+.saved {
+  color: #2e7d32;
+}
+.saveError {
+  color: #c62828;
+}
 
 .ok {
   display: block;
@@ -62,4 +76,6 @@
   font-size: 15px;
 }
 
-.ok:hover { background: #0048c0; }
+.ok:hover {
+  background: #0048c0;
+}

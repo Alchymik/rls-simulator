@@ -7,4 +7,5 @@ export const toPublicUser = (u: DbUser) => ({
   login: u.login,
   role: u.role,
   displayName: u.displayName,
+  mustChangePassword: u.mustChangePassword,
 });

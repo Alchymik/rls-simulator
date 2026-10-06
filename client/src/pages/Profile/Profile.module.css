@@ -67,7 +67,9 @@
   border-radius: 8px;
 }
 
-.logout:hover { background: #96244a; }
+.logout:hover {
+  background: #96244a;
+}
 
 .form {
   display: grid;
@@ -108,10 +110,20 @@
   border-radius: 8px;
 }
 
-.submit:hover { background: #0048c0; }
+.submit:hover {
+  background: #0048c0;
+}
 
-.ok { margin: 0; font-size: 13px; color: #2e7d32; }
-.error { margin: 0; font-size: 13px; color: #c62828; }
+.ok {
+  margin: 0;
+  font-size: 13px;
+  color: #2e7d32;
+}
+.error {
+  margin: 0;
+  font-size: 13px;
+  color: #c62828;
+}
 
 .totals {
   display: flex;
@@ -122,9 +134,15 @@
   color: #5b6b7c;
 }
 
-.totals b { color: #1f2937; }
-.green { color: #2e7d32; }
-.red { color: #c62828; }
+.totals b {
+  color: #1f2937;
+}
+.green {
+  color: #2e7d32;
+}
+.red {
+  color: #c62828;
+}
 
 .tableWrap {
   overflow-x: auto;

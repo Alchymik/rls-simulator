@@ -39,9 +39,16 @@
   color: #fff;
 }
 
-.start { background: #2e7d32; }
-.pause { background: #f0b429; color: #212529; }
-.reset { background: #6c757d; }
+.start {
+  background: #2e7d32;
+}
+.pause {
+  background: #f0b429;
+  color: #212529;
+}
+.reset {
+  background: #6c757d;
+}
 
 .timer {
   display: inline-flex;
@@ -63,9 +70,16 @@
   font-variant-numeric: tabular-nums;
 }
 
-.time { font-size: 18px; font-weight: 700; line-height: 1.1; }
+.time {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.1;
+}
 /* Вторичный текст на тёмно-синей панели: остаётся светлым для контраста */
-.date { font-size: 11px; color: rgba(255, 255, 255, 0.8); }
+.date {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+}
 
 .bell {
   position: relative;
@@ -77,7 +91,9 @@
   font-size: 16px;
 }
 
-.bell:hover { background: rgba(255, 255, 255, 0.16); }
+.bell:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
 
 .badge {
   position: absolute;

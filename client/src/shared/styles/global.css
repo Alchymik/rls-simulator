@@ -12,67 +12,52 @@
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
-html, body, #root { height: 100%; margin: 0; }
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
 
 body {
-  font-family: Inter, "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  font-family:
+    Inter,
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    Roboto,
+    sans-serif;
   background: var(--bg-0);
   color: var(--fg-0);
   -webkit-font-smoothing: antialiased;
 }
 
-button { font: inherit; cursor: pointer; border: none; border-radius: var(--radius); }
-
-a { color: inherit; text-decoration: none; }
-
-/* Отметки обнаруженных целей на снимке экрана для архива событий.
-   Классы глобальные: элементы добавляются в разметку страницы вне React-дерева.
-   Коробка отметки имеет ненулевой размер: инструмент снимка пропускает узлы нулевого размера,
-   поэтому кольцо и подпись размещены внутри коробки, а не выступают за её пределы. */
-.rls-target-mark {
-  position: absolute;
-  width: 260px;
-  height: 84px;
-  margin: -62px 0 0 -130px;
-  z-index: 1500;
-  pointer-events: none;
+button {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius);
 }
 
-.rls-target-mark__ring {
-  position: absolute;
-  left: 126px;
-  top: 58px;
-  width: 18px;
-  height: 18px;
-  border: 2px solid #0048c0;
-  border-radius: 50%;
-  background: rgba(255, 209, 102, 0.18);
+a {
+  color: inherit;
+  text-decoration: none;
 }
 
-/* Цель, из-за которой сработала тревога */
-.rls-target-mark--accent .rls-target-mark__ring {
-  left: 116px;
-  top: 48px;
-  width: 28px;
-  height: 28px;
-  border: 3px solid #c62828;
-  background: rgba(255, 45, 85, 0.25);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 0 12px rgba(0, 0, 0, 0.6);
+.app-dialog {
+  max-width: none;
+  max-height: none;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
 }
-
-.rls-target-mark__label {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  transform: translateX(-50%);
-  padding: 3px 8px;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  color: #fff;
-  background: rgba(10, 30, 70, 0.88);
-  border: 1px solid #c62828;
-  border-radius: 6px;
+.app-dialog::backdrop {
+  background: transparent;
 }

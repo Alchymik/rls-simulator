@@ -1,47 +1,74 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { db } from '../../shared/db.js';
+import type { Database } from '../../shared/db.js';
+import { normalizeLogin } from '../../shared/db.js';
 import { toPublicUser } from '../../shared/mappers.js';
-import { authGuard, JWT_EXPIRES_IN, JWT_SECRET, type AuthedRequest } from '../../shared/middleware/authGuard.js';
+import { passwordField, passwordInput } from '../../shared/validation.js';
+import {
+  createAuthMiddleware,
+  signUserToken,
+  type AuthedRequest,
+} from '../../shared/middleware/authGuard.js';
 
-export const authRouter = Router();
+const schema = z.object({ login: z.string().trim().min(1).max(64), password: passwordInput });
+const passwordSchema = z
+  .object({ currentPassword: passwordInput, newPassword: passwordField })
+  .refine((value) => value.currentPassword !== value.newPassword, {
+    message: 'Новый пароль совпадает с текущим',
+  });
 
-const schema = z.object({ login: z.string().min(1), password: z.string().min(1) });
-const passwordSchema = z.object({ currentPassword: z.string().min(1), newPassword: z.string().min(4) });
+/** Сравнение для неизвестного логина занимает примерно столько же, сколько для существующего. */
+const DUMMY_HASH = bcrypt.hashSync('dummy-password', 10);
 
-authRouter.post('/login', async (req, res) => {
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ message: 'Bad request' });
+export const createAuthRouter = (db: Database) => {
+  const router = Router();
+  const { authGuard } = createAuthMiddleware(db);
 
-  const user = db.users.find((u) => u.login === parsed.data.login);
-  if (!user || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
-    return res.status(401).json({ message: 'Неверный логин или пароль' });
-  }
-  const token = jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-  res.json({ token, user: { id: user.id, login: user.login, role: user.role, displayName: user.displayName } });
-});
+  router.post('/login', async (req, res) => {
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: 'Bad request' });
 
-// Текущий пользователь по токену: клиент проверяет сессию при запуске приложения
-authRouter.get('/me', authGuard, (req: AuthedRequest, res) => {
-  const user = db.users.find((u) => u.id === req.userId);
-  if (!user) return res.status(401).json({ message: 'Invalid token' });
-  res.json(toPublicUser(user));
-});
+    const candidate = db.findUserByLogin(normalizeLogin(parsed.data.login));
+    const passwordOk = await bcrypt.compare(parsed.data.password, candidate?.passwordHash ?? DUMMY_HASH);
+    if (!candidate || !passwordOk) return res.status(401).json({ message: 'Неверный логин или пароль' });
 
-// Смена пароля из раздела «Профиль» (п.3.2 ТЗ, п.2)
-authRouter.post('/password', authGuard, async (req: AuthedRequest, res) => {
-  const parsed = passwordSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ message: 'Пароль должен быть не короче 4 символов' });
+    // Пароль или учётную запись могли изменить, пока выполнялся bcrypt.compare.
+    const user = db.findUserById(candidate.id);
+    if (
+      !user ||
+      user.passwordHash !== candidate.passwordHash ||
+      user.tokenVersion !== candidate.tokenVersion
+    ) {
+      return res.status(401).json({ message: 'Неверный логин или пароль' });
+    }
+    res.json({ token: signUserToken(db, user), user: toPublicUser(user) });
+  });
 
-  const user = db.users.find((u) => u.id === req.userId);
-  if (!user) return res.status(401).json({ message: 'Invalid token' });
+  // Клиент проверяет сохранённую авторизацию при каждом запуске приложения.
+  router.get('/me', authGuard, (req: AuthedRequest, res) => {
+    const user = req.userId ? db.findUserById(req.userId) : undefined;
+    if (!user) return res.status(401).json({ message: 'Invalid token' });
+    res.json(toPublicUser(user));
+  });
 
-  if (!(await bcrypt.compare(parsed.data.currentPassword, user.passwordHash))) {
-    return res.status(400).json({ message: 'Текущий пароль неверен' });
-  }
+  router.post('/password', authGuard, async (req: AuthedRequest, res) => {
+    const parsed = passwordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: parsed.error.issues[0]?.message ?? 'Bad request' });
+    }
 
-  user.passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
-  res.status(204).end();
-});
+    const user = req.userId ? db.findUserById(req.userId) : undefined;
+    if (!user) return res.status(401).json({ message: 'Invalid token' });
+    if (!(await bcrypt.compare(parsed.data.currentPassword, user.passwordHash))) {
+      return res.status(400).json({ message: 'Текущий пароль неверен' });
+    }
+
+    const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+    const changed = await db.changePassword(user.id, user.passwordHash, passwordHash);
+    if (!changed) return res.status(409).json({ message: 'Пароль уже изменён. Войдите снова.' });
+    res.json({ token: signUserToken(db, changed), user: toPublicUser(changed) });
+  });
+
+  return router;
+};

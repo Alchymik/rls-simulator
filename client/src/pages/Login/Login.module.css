@@ -6,9 +6,7 @@
   overflow: hidden;
   /* Тот же спутниковый вид района, но кадр снят целиком в разрешении 1600×1000:
      одиночный тайл 256×256 при растягивании на весь экран давал заметную пикселизацию */
-  background:
-    linear-gradient(rgba(10, 30, 70, 0.65), rgba(10, 30, 70, 0.65)),
-    url('./assets/radar-area.jpg');
+  background: linear-gradient(rgba(10, 30, 70, 0.65), rgba(10, 30, 70, 0.65)), url('./assets/radar-area.jpg');
   background-size: cover;
   background-position: center;
 }
@@ -63,7 +61,9 @@
   background: #fff;
 }
 
-.input::placeholder { color: #7a8797; }
+.input::placeholder {
+  color: #7a8797;
+}
 
 .err {
   color: #c62828;
@@ -81,5 +81,10 @@
   font-size: 15px;
 }
 
-.btn:hover:not(:disabled) { background: #0048c0; }
-.btn:disabled { opacity: 0.6; cursor: progress; }
+.btn:hover:not(:disabled) {
+  background: #0048c0;
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}

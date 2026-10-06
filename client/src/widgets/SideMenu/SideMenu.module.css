@@ -59,8 +59,13 @@
   font-size: 18px;
 }
 
-.name { font-weight: 600; }
-.role { font-size: 12px; color: #5b6b7c; }
+.name {
+  font-weight: 600;
+}
+.role {
+  font-size: 12px;
+  color: #5b6b7c;
+}
 
 .logout {
   width: 100%;
@@ -71,4 +76,6 @@
   border-radius: 8px;
 }
 
-.logout:hover { background: #96244a; }
+.logout:hover {
+  background: #96244a;
+}

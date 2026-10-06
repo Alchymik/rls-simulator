@@ -1,10 +1,12 @@
 // client/src/features/events/lib/captureScreenshot.ts
 import { divIcon, marker } from 'leaflet';
-import { domToJpeg } from 'modern-screenshot';
+import { domToCanvas } from 'modern-screenshot';
 import { getActiveMap } from '@/shared/lib/mapRegistry';
 
 /** Целевая ширина снимка, px */
 const SCREENSHOT_WIDTH = 960;
+/** Ширина миниатюры для списка архива, px */
+const THUMBNAIL_WIDTH = 240;
 const JPEG_QUALITY = 0.62;
 
 /** Отметка на снимке: цель, которая была видна оператору в момент тревоги */
@@ -13,19 +15,23 @@ export interface CaptureMark {
   lng: number;
   /** Цель, из-за которой сработала тревога: кольцо крупнее и с подписью сектора и скорости */
   accent?: boolean;
-  /** Подпись под кольцом (только для акцентной отметки) */
+  /** Подпись над кольцом (только для акцентной отметки) */
   label?: string;
 }
 
+export interface Capture {
+  screenshot: string;
+  thumbnail: string;
+}
+
 /**
- * Экранная позиция точки относительно документа.
+ * Экранная позиция точки относительно корня приложения.
  * Берётся у временного маркера карты: смещение, масштаб и поворот карты учитывает сам Leaflet,
  * а не ручная проекция координат.
  */
-const projectPoint = (lat: number, lng: number): { x: number; y: number } | null => {
+const projectPoint = (root: HTMLElement, lat: number, lng: number): { x: number; y: number } | null => {
   const map = getActiveMap();
-  const root = document.getElementById('root');
-  if (!map || !root) return null;
+  if (!map) return null;
 
   const probe = marker([lat, lng], {
     icon: divIcon({ className: 'rls-capture-probe', html: '', iconSize: [0, 0] }),
@@ -42,52 +48,37 @@ const projectPoint = (lat: number, lng: number): { x: number; y: number } | null
 };
 
 /**
- * Отметки обнаруженных целей (п.3.1 ТЗ): по снимку должно быть видно, какая обстановка была
- * на экране и какая именно цель вызвала тревогу.
- *
- * Отметки строятся обычными элементами страницы, а не слоями карты: инструмент снимка переносит
- * содержимое страницы, но слои, добавленные внутрь контейнера карты, в кадр не попадают.
+ * Отметка рисуется на готовом кадре, а не элементами страницы: оператор не видит мелькающих колец,
+ * а отметки соседних тревог не попадают в чужой снимок.
+ * @param k множитель «пиксели кадра / CSS-пиксели»
  */
-const addMark = (mark: CaptureMark): HTMLElement | null => {
-  const root = document.getElementById('root');
-  const point = projectPoint(mark.lat, mark.lng);
-  if (!root || !point) return null;
+const drawMark = (ctx: CanvasRenderingContext2D, mark: CaptureMark, x: number, y: number, k: number) => {
+  ctx.beginPath();
+  ctx.arc(x, y, (mark.accent ? 14 : 9) * k, 0, Math.PI * 2);
+  ctx.lineWidth = (mark.accent ? 3 : 2) * k;
+  ctx.strokeStyle = mark.accent ? '#c62828' : '#ffd166';
+  ctx.fillStyle = mark.accent ? 'rgba(255, 45, 85, 0.25)' : 'rgba(255, 209, 102, 0.18)';
+  ctx.fill();
+  ctx.stroke();
 
-  const box = document.createElement('div');
-  box.className = mark.accent ? 'rls-target-mark rls-target-mark--accent' : 'rls-target-mark';
-  box.style.left = `${point.x}px`;
-  box.style.top = `${point.y}px`;
-
-  const ring = document.createElement('span');
-  ring.className = 'rls-target-mark__ring';
-  box.append(ring);
-
-  if (mark.label) {
-    const label = document.createElement('b');
-    label.className = 'rls-target-mark__label';
-    label.textContent = mark.label;
-    box.append(label);
-  }
-
-  root.append(box);
-  return box;
+  if (!mark.label) return;
+  ctx.font = `600 ${12 * k}px system-ui, sans-serif`;
+  const width = ctx.measureText(mark.label).width + 16 * k;
+  ctx.fillStyle = 'rgba(10, 30, 70, 0.88)';
+  ctx.fillRect(x - width / 2, y - 42 * k, width, 22 * k);
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(mark.label, x, y - 31 * k);
 };
 
-/**
- * Даёт браузеру отрисовать добавленные отметки до снятия кадра.
- * Ожидание ограничено по времени: в свёрнутом или фоновом окне кадры не запрашиваются,
- * и без ограничения снимок вместе с конвейером тревоги завис бы.
- */
-const waitForPaint = () =>
-  new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, 150);
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        clearTimeout(timer);
-        resolve();
-      }),
-    );
-  });
+const toThumbnail = (source: HTMLCanvasElement): string => {
+  const thumb = document.createElement('canvas');
+  thumb.width = THUMBNAIL_WIDTH;
+  thumb.height = Math.round((source.height * THUMBNAIL_WIDTH) / source.width);
+  thumb.getContext('2d')?.drawImage(source, 0, 0, thumb.width, thumb.height);
+  return thumb.toDataURL('image/jpeg', 0.7);
+};
 
 /**
  * Снимок экрана ПО для архива тревожных событий (п.3.1 ТЗ).
@@ -97,27 +88,49 @@ const waitForPaint = () =>
  * перестраивается под это число и часть экрана теряется при широком окне, а при узком
  * добавляется пустая полоса. Библиотека сама встраивает внешние изображения (тайлы карты).
  */
-export const captureScreenshot = async (marks: CaptureMark[] = []): Promise<string> => {
+export const captureScreenshot = async (marks: CaptureMark[] = []): Promise<Capture> => {
   const root = document.getElementById('root');
-  if (!root) return '';
+  if (!root) return { screenshot: '', thumbnail: '' };
 
   // Уменьшаем широкие окна до целевой ширины, но никогда не растягиваем узкие
-  const scale = Math.min(1, SCREENSHOT_WIDTH / root.clientWidth) || 1;
+  const width = root.clientWidth;
+  const height = root.clientHeight;
+  const scale = Math.min(1, SCREENSHOT_WIDTH / width) || 1;
+  // Позиции снимаются до кадра, пока карта не сдвинулась
+  const points = marks.map((mark) => ({ mark, point: projectPoint(root, mark.lat, mark.lng) }));
 
-  const added = marks.map(addMark).filter((el): el is HTMLElement => el !== null);
-  if (added.length) await waitForPaint();
-
+  // Freeze the DOM before waiting on images/fonts: a slow upload must not capture a later page.
+  const snapshot = root.cloneNode(true) as HTMLElement;
+  snapshot.id = 'rls-capture-root';
+  snapshot.setAttribute('aria-hidden', 'true');
+  snapshot.inert = true;
+  Object.assign(snapshot.style, {
+    position: 'fixed',
+    left: '-100000px',
+    top: '0',
+    width: `${width}px`,
+    height: `${height}px`,
+  });
+  snapshot.style.transform = 'translateZ(0)';
+  document.querySelectorAll('dialog[open]').forEach((dialog) => snapshot.appendChild(dialog.cloneNode(true)));
+  document.body.appendChild(snapshot);
+  const canvases = root.querySelectorAll('canvas');
+  snapshot.querySelectorAll('canvas').forEach((copy, index) => {
+    const original = canvases[index];
+    if (original) copy.getContext('2d')?.drawImage(original, 0, 0);
+  });
   try {
-    return await domToJpeg(root, {
-      scale,
-      quality: JPEG_QUALITY,
-      backgroundColor: '#eef1f5',
-      timeout: 5000,
-    });
+    const canvas = await domToCanvas(snapshot, { scale, backgroundColor: '#eef1f5', timeout: 5000 });
+    const ctx = canvas.getContext('2d');
+    const k = canvas.width / width;
+    if (ctx) {
+      for (const { mark, point } of points) if (point) drawMark(ctx, mark, point.x * k, point.y * k, k);
+    }
+    return { screenshot: canvas.toDataURL('image/jpeg', JPEG_QUALITY), thumbnail: toThumbnail(canvas) };
   } catch {
     // Сбой снимка не должен прерывать тренировку — событие сохранится без картинки
-    return '';
+    return { screenshot: '', thumbnail: '' };
   } finally {
-    for (const el of added) el.remove();
+    snapshot.remove();
   }
 };

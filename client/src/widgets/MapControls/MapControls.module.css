@@ -17,7 +17,7 @@
   place-items: center;
   background: rgba(15, 35, 56, 0.92);
   border: 1px solid #d9dee6;
-  color: #1f2937;
+  color: #f4f7fb;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
@@ -38,7 +38,7 @@
   bottom: 3px;
   font-size: 10px;
   font-weight: 700;
-  color: #5b6b7c;
+  color: #dbeafe;
   font-variant-numeric: tabular-nums;
 }
 
@@ -64,5 +64,5 @@
 .compass:hover,
 .home:hover,
 .small:hover {
-  background: #d9dee6;
+  background: #315473;
 }

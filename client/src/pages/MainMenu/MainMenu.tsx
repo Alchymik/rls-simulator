@@ -1,10 +1,12 @@
 // client/src/pages/MainMenu/MainMenu.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useAuthStore } from '@/features/auth/model/authStore';
+import { useSimulationStore } from '@/features/simulation/model/simulationStore';
 import { RadarMap } from '@/widgets/Map/RadarMap';
 import { TrainingSetupModal } from '@/widgets/TrainingSetupModal/TrainingSetupModal';
-import { useSettingsStore, type TrainingSettings } from '@/features/settings/model/settingsStore';
-import { useSimulationStore } from '@/features/simulation/model/simulationStore';
+import { useSettingsStore } from '@/features/settings/model/settingsStore';
+import type { TrainingSettings } from '@/entities/session/model/training';
 import styles from './MainMenu.module.css';
 
 const MainMenu = () => {
@@ -15,9 +17,10 @@ const MainMenu = () => {
 
   // Перед сеансом параметры задаются в окне настроек тренировки (п.3.3 ТЗ, п.2)
   const startSession = (settings: TrainingSettings) => {
+    const user = useAuthStore.getState().user;
+    if (!user || user.mustChangePassword) return;
     setTraining(settings);
-    // Остатки прошлого сеанса не должны попадать на карту главного меню
-    useSimulationStore.getState().reset();
+    useSimulationStore.getState().start(settings, user.id);
     setSetupOpen(false);
     void navigate('/simulation');
   };
@@ -37,11 +40,7 @@ const MainMenu = () => {
       </div>
 
       {setupOpen && (
-        <TrainingSetupModal
-          initial={training}
-          onCancel={() => setSetupOpen(false)}
-          onStart={startSession}
-        />
+        <TrainingSetupModal initial={training} onCancel={() => setSetupOpen(false)} onStart={startSession} />
       )}
     </div>
   );

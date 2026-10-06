@@ -1,7 +1,8 @@
 // client/src/widgets/ResultsModal/ResultsModal.tsx
 import { useSimulationStore } from '@/features/simulation/model/simulationStore';
-import { useHotkey } from '@/shared/lib/useHotkey';
+import { Dialog } from '@/shared/ui/Dialog';
 import { formatDuration } from '@/shared/lib/units';
+import { formatSeconds } from '@/shared/lib/format';
 import styles from './ResultsModal.module.css';
 
 /** Состояние записи сеанса в профиль пользователя (п.3.3 ТЗ, п.7). */
@@ -10,6 +11,8 @@ export type SaveStatus = 'pending' | 'saved' | 'error';
 interface Props {
   saveStatus: SaveStatus;
   onClose: () => void;
+  onRetry: () => void;
+  error?: string | null;
 }
 
 const Row = ({ label, value, accent }: { label: string; value: string; accent?: 'green' | 'red' }) => (
@@ -20,36 +23,41 @@ const Row = ({ label, value, accent }: { label: string; value: string; accent?: 
 );
 
 /** Окно результатов после завершения сеанса тренировки (п.3.3 ТЗ, п.6). */
-export const ResultsModal = ({ saveStatus, onClose }: Props) => {
+export const ResultsModal = ({ saveStatus, onClose, onRetry, error }: Props) => {
   const elapsedSec = useSimulationStore((s) => s.elapsedSec);
   const stats = useSimulationStore((s) => s.stats);
 
-  useHotkey('Escape', onClose);
-
-  const avgSec = stats.reactionSamples.length
-    ? stats.reactionSamples.reduce((sum, s) => sum + s.reactionMs, 0) /
-      stats.reactionSamples.length /
-      1000
-    : 0;
+  // Среднее время — по верно определённым БВС: ошибочные отметки птиц его искажают
+  const correctSamples = stats.reactionSamples.filter((s) => s.correct);
+  const avgSec = correctSamples.length
+    ? correctSamples.reduce((sum, s) => sum + s.reactionMs, 0) / correctSamples.length / 1000
+    : null;
 
   return (
-    <div className={styles.backdrop}>
-      <div className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="results-title">
+    <Dialog className={styles.backdrop} onClose={onClose} labelledBy="results-title">
+      <div className={styles.modal}>
         <h3 id="results-title">Результаты тренировки</h3>
         <Row label="Общее время симуляции" value={formatDuration(elapsedSec)} />
         <Row label="Отмеченных целей" value={String(stats.markedTotal)} />
         <Row label="Верно" value={String(stats.correct)} accent="green" />
         <Row label="Ошибок" value={String(stats.wrong)} accent="red" />
-        <Row label="Среднее время определения" value={formatDuration(avgSec)} />
-        {saveStatus !== 'pending' && (
-          <p className={saveStatus === 'saved' ? styles.saved : styles.saveError} role="status">
-            {saveStatus === 'saved'
-              ? 'Результаты сохранены в разделе «Профиль»'
-              : 'Не удалось сохранить результаты: нет связи с сервером'}
-          </p>
+        <Row label="Среднее время определения БВС" value={avgSec === null ? '—' : formatSeconds(avgSec)} />
+        <p className={saveStatus === 'error' ? styles.saveError : styles.saved} role="status">
+          {saveStatus === 'saved'
+            ? 'Результаты сохранены в разделе «Профиль»'
+            : saveStatus === 'pending'
+              ? 'Сохраняем результат…'
+              : (error ?? 'Результат сохранён на устройстве и будет отправлен позже.')}
+        </p>
+        {saveStatus === 'error' && (
+          <button className={styles.ok} onClick={onRetry}>
+            Повторить сохранение
+          </button>
         )}
-        <button className={styles.ok} onClick={onClose}>✓ OK</button>
+        <button className={styles.ok} onClick={onClose}>
+          ✓ OK
+        </button>
       </div>
-    </div>
+    </Dialog>
   );
 };

@@ -1,38 +1,52 @@
 import type { Request, Response, NextFunction } from 'express';
-import { randomBytes } from 'node:crypto';
 import jwt from 'jsonwebtoken';
-import { db, type DbUser } from '../db.js';
-
-// Секрет задаётся переменной окружения; в desktop-сборке (и при разработке) генерируется
-// случайный — токены прошлых запусков всё равно недействительны из-за in-memory БД.
-export const JWT_SECRET = process.env.JWT_SECRET ?? randomBytes(32).toString('hex');
-export const JWT_EXPIRES_IN = '12h';
+import { JWT_EXPIRES_IN, type Database, type DbUser } from '../db.js';
 
 export interface AuthedRequest extends Request {
   userId?: string;
   userRole?: DbUser['role'];
+  tokenVersion?: number;
 }
 
-export const authGuard = (req: AuthedRequest, res: Response, next: NextFunction) => {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
-  try {
-    const payload = jwt.verify(header.slice(7), JWT_SECRET) as { sub: string };
-    // Роль берём из БД, а не из токена: изменение прав действует без перелогина.
-    // In-memory БД сбрасывается при рестарте, поэтому токен из прошлого запуска
-    // остаётся валидным по подписи, но указывает на несуществующего пользователя.
-    const user = db.users.find((u) => u.id === payload.sub);
-    if (!user) return res.status(401).json({ message: 'Invalid token' });
-    req.userId = user.id;
-    req.userRole = user.role;
-    next();
-  } catch {
-    res.status(401).json({ message: 'Invalid token' });
-  }
-};
+export const signUserToken = (db: Database, user: DbUser) =>
+  jwt.sign({ ver: user.tokenVersion }, db.getJwtSecret(), {
+    subject: user.id,
+    expiresIn: JWT_EXPIRES_IN,
+    algorithm: 'HS256',
+  });
 
-/** Разграничение прав доступа: административные операции (п.3.2 ТЗ, п.2). */
-export const requireAdmin = (req: AuthedRequest, res: Response, next: NextFunction) => {
-  if (req.userRole !== 'admin') return res.status(403).json({ message: 'Forbidden' });
-  next();
+export const createAuthMiddleware = (db: Database) => {
+  const authGuard = (req: AuthedRequest, res: Response, next: NextFunction) => {
+    const header = req.headers.authorization;
+    if (!header?.startsWith('Bearer ')) return res.status(401).json({ message: 'Unauthorized' });
+    try {
+      const payload = jwt.verify(header.slice(7), db.getJwtSecret(), { algorithms: ['HS256'] });
+      if (typeof payload === 'string' || typeof payload.sub !== 'string' || !Number.isInteger(payload.ver)) {
+        return res.status(401).json({ message: 'Invalid token' });
+      }
+      const user = db.findUserById(payload.sub);
+      if (!user || user.tokenVersion !== payload.ver)
+        return res.status(401).json({ message: 'Invalid token' });
+      req.userId = user.id;
+      req.userRole = user.role;
+      req.tokenVersion = user.tokenVersion;
+      next();
+    } catch {
+      res.status(401).json({ message: 'Invalid token' });
+    }
+  };
+
+  const requireAdmin = (req: AuthedRequest, res: Response, next: NextFunction) => {
+    if (req.userRole !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+    next();
+  };
+
+  const requirePasswordChanged = (req: AuthedRequest, res: Response, next: NextFunction) => {
+    const user = req.userId ? db.findUserById(req.userId) : undefined;
+    if (!user) return res.status(401).json({ message: 'Invalid token' });
+    if (user.mustChangePassword) return res.status(403).json({ message: 'Необходимо сменить пароль' });
+    next();
+  };
+
+  return { authGuard, requireAdmin, requirePasswordChanged };
 };

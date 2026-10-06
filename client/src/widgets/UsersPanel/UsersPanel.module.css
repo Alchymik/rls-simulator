@@ -63,7 +63,9 @@
   cursor: not-allowed;
 }
 
-.remove:not(:disabled):hover { background: #96244a; }
+.remove:not(:disabled):hover {
+  background: #96244a;
+}
 
 .form {
   display: grid;
@@ -101,7 +103,17 @@
   border-radius: 8px;
 }
 
-.submit:hover { background: #0048c0; }
+.submit:hover {
+  background: #0048c0;
+}
 
-.ok { margin: 12px 0 0; font-size: 13px; color: #2e7d32; }
-.error { margin: 12px 0 0; font-size: 13px; color: #c62828; }
+.ok {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #2e7d32;
+}
+.error {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #c62828;
+}

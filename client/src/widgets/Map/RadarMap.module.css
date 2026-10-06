@@ -1,15 +1,66 @@
 /* RadarMap.module.css */
 /* z-index: 0 создаёт stacking context: панели Leaflet (z-index 400+) не перекрывают
    накладные элементы страницы — карточку главного меню, панели и модальные окна. */
-.map { position: absolute; inset: 0; z-index: 0; }
+.map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
 .dot span {
-  display: block; width: 14px; height: 14px; border-radius: 50%;
-  border: 2px solid #fff; box-shadow: 0 0 6px rgba(0,0,0,.6); cursor: pointer;
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  background: var(--accent);
+}
+.correct span {
+  background: var(--success);
+}
+.wrong span {
+  background: var(--danger);
 }
 /* Подпись радарного кольца: маркер нулевого размера, текст центрируется на его точке */
 .ringLabel {
   overflow: visible;
-  color: #dbeafe; font-size: 11px; line-height: 1; white-space: nowrap;
-  text-shadow: 0 1px 3px rgba(0,0,0,.9); pointer-events: none;
+  color: #dbeafe;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
 }
-.ringLabel span { position: absolute; transform: translate(-50%, -50%); }
+.ringLabel span {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+.map {
+  background-color: #24384d;
+  background-image:
+    linear-gradient(#ffffff10 1px, transparent 1px), linear-gradient(90deg, #ffffff10 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.mapNotice {
+  position: absolute;
+  bottom: 28px;
+  left: 12px;
+  z-index: 1000;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  max-width: 300px;
+  color: #fff;
+  background: #142333e8;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.mapNotice button {
+  padding: 6px;
+  border: 1px solid #ffffff50;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}

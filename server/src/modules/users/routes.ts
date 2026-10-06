@@ -1,80 +1,98 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { nanoid } from 'nanoid';
 import { z } from 'zod';
-import { db, type DbUser } from '../../shared/db.js';
+import type { Database } from '../../shared/db.js';
 import { toPublicUser } from '../../shared/mappers.js';
 import type { AuthedRequest } from '../../shared/middleware/authGuard.js';
-
-export const usersRouter = Router();
+import { passwordField } from '../../shared/validation.js';
 
 const roleSchema = z.enum(['admin', 'operator']);
-
 const createSchema = z.object({
-  login: z.string().min(3),
-  password: z.string().min(4),
-  displayName: z.string().min(1),
+  login: z
+    .string()
+    .trim()
+    .min(3)
+    .max(32)
+    .regex(/^[a-z0-9._-]+$/i, 'Логин: латиница, цифры, точка, дефис'),
+  password: passwordField,
+  displayName: z.string().trim().min(1).max(64),
   role: roleSchema,
 });
-
 const updateSchema = z.object({
-  displayName: z.string().min(1).optional(),
+  displayName: z.string().trim().min(1).max(64).optional(),
   role: roleSchema.optional(),
-  password: z.string().min(4).optional(),
+  password: passwordField.optional(),
 });
 
-const adminsCount = () => db.users.filter((u) => u.role === 'admin').length;
+export const createUsersRouter = (db: Database) => {
+  const router = Router();
 
-usersRouter.get('/', (_req, res) => {
-  res.json(db.users.map(toPublicUser));
-});
+  router.get('/', (_req, res) => res.json(db.listUsers().map(toPublicUser)));
 
-usersRouter.post('/', async (req, res) => {
-  const parsed = createSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ message: 'Bad request' });
-  if (db.users.some((u) => u.login === parsed.data.login)) {
-    return res.status(409).json({ message: 'Логин уже занят' });
-  }
-  const user: DbUser = {
-    id: nanoid(8),
-    login: parsed.data.login,
-    passwordHash: await bcrypt.hash(parsed.data.password, 10),
-    role: parsed.data.role,
-    displayName: parsed.data.displayName,
-  };
-  db.users.push(user);
-  res.status(201).json(toPublicUser(user));
-});
+  router.post('/', async (req: AuthedRequest, res) => {
+    const parsed = createSchema.safeParse(req.body);
+    if (!parsed.success)
+      return res.status(400).json({ message: parsed.error.issues[0]?.message ?? 'Bad request' });
+    if (!req.userId) return res.status(401).json({ message: 'Invalid token' });
 
-usersRouter.patch('/:id', async (req: AuthedRequest, res) => {
-  const parsed = updateSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ message: 'Bad request' });
+    // Hashing happens before the repository's atomic uniqueness check and insert.
+    const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+    const result = await db.createUser(req.userId, req.tokenVersion!, {
+      login: parsed.data.login,
+      passwordHash,
+      role: parsed.data.role,
+      displayName: parsed.data.displayName,
+      mustChangePassword: true,
+    });
+    if ('error' in result) {
+      if (result.error === 'duplicate') return res.status(409).json({ message: 'Логин уже занят' });
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    res.status(201).json(toPublicUser(result.user));
+  });
 
-  const user = db.users.find((u) => u.id === req.params.id);
-  if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+  router.patch('/:id', async (req: AuthedRequest, res) => {
+    const parsed = updateSchema.safeParse(req.body);
+    if (!parsed.success)
+      return res.status(400).json({ message: parsed.error.issues[0]?.message ?? 'Bad request' });
+    if (!req.userId) return res.status(401).json({ message: 'Invalid token' });
+    const targetId = req.params.id;
+    if (typeof targetId !== 'string') return res.status(404).json({ message: 'Пользователь не найден' });
 
-  // Нельзя оставить систему без администратора
-  if (parsed.data.role && parsed.data.role !== 'admin' && user.role === 'admin' && adminsCount() === 1) {
-    return res.status(409).json({ message: 'В системе должен остаться хотя бы один администратор' });
-  }
+    const changes = {
+      ...(parsed.data.displayName !== undefined ? { displayName: parsed.data.displayName } : {}),
+      ...(parsed.data.role !== undefined ? { role: parsed.data.role } : {}),
+      ...(parsed.data.password ? { passwordHash: await bcrypt.hash(parsed.data.password, 10) } : {}),
+    };
+    const result = await db.updateUser(req.userId, req.tokenVersion!, targetId, changes);
+    if ('error' in result) {
+      if (result.error === 'missing') return res.status(404).json({ message: 'Пользователь не найден' });
+      if (result.error === 'self-role')
+        return res.status(409).json({ message: 'Нельзя изменить собственную роль' });
+      if (result.error === 'self-password')
+        return res.status(409).json({ message: 'Свой пароль меняют в разделе «Профиль»' });
+      if (result.error === 'last-admin')
+        return res.status(409).json({ message: 'В системе должен остаться хотя бы один администратор' });
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    res.json(toPublicUser(result.user));
+  });
 
-  if (parsed.data.displayName) user.displayName = parsed.data.displayName;
-  if (parsed.data.role) user.role = parsed.data.role;
-  if (parsed.data.password) user.passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  router.delete('/:id', async (req: AuthedRequest, res) => {
+    if (!req.userId) return res.status(401).json({ message: 'Invalid token' });
+    const targetId = req.params.id;
+    if (typeof targetId !== 'string') return res.status(404).json({ message: 'Пользователь не найден' });
+    const result = await db.deleteUser(req.userId, req.tokenVersion!, targetId);
+    if ('error' in result) {
+      if (result.error === 'missing') return res.status(404).json({ message: 'Пользователь не найден' });
+      if (result.error === 'self-delete')
+        return res.status(409).json({ message: 'Нельзя удалить самого себя' });
+      if (result.error === 'last-admin')
+        return res.status(409).json({ message: 'В системе должен остаться хотя бы один администратор' });
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    res.status(204).end();
+  });
 
-  res.json(toPublicUser(user));
-});
-
-usersRouter.delete('/:id', (req: AuthedRequest, res) => {
-  const index = db.users.findIndex((u) => u.id === req.params.id);
-  const target = db.users[index];
-  if (!target) return res.status(404).json({ message: 'Пользователь не найден' });
-  if (target.id === req.userId) {
-    return res.status(409).json({ message: 'Нельзя удалить самого себя' });
-  }
-  if (target.role === 'admin' && adminsCount() === 1) {
-    return res.status(409).json({ message: 'В системе должен остаться хотя бы один администратор' });
-  }
-  db.users.splice(index, 1);
-  res.status(204).end();
-});
+  return router;
+};

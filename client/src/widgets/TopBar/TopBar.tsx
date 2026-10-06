@@ -2,7 +2,6 @@
 import { useLocation } from 'react-router';
 import { useSimulationStore } from '@/features/simulation/model/simulationStore';
 import { useUiStore } from '@/features/simulation/model/uiStore';
-import { useSettingsStore } from '@/features/settings/model/settingsStore';
 import { useNow } from '@/shared/lib/useNow';
 import { formatDate, formatTime } from '@/shared/lib/format';
 import styles from './TopBar.module.css';
@@ -12,13 +11,12 @@ export const TopBar = () => {
   const inSimulation = pathname === '/simulation' || pathname.startsWith('/simulation/');
 
   const status = useSimulationStore((s) => s.status);
-  const elapsedSec = useSimulationStore((s) => s.elapsedSec);
-  const start = useSimulationStore((s) => s.start);
+  // Целые секунды: панель перерисовывается раз в секунду, а не на каждом кадре
+  const elapsedSec = useSimulationStore((s) => Math.floor(s.elapsedSec));
   const pause = useSimulationStore((s) => s.pause);
   const resume = useSimulationStore((s) => s.resume);
-  const reset = useSimulationStore((s) => s.reset);
+  const finish = useSimulationStore((s) => s.finish);
   const notificationCount = useSimulationStore((s) => s.notifications.length);
-  const training = useSettingsStore((s) => s.training);
 
   const notificationsOpen = useUiStore((s) => s.notificationsOpen);
   const toggleNotifications = useUiStore((s) => s.toggleNotifications);
@@ -28,7 +26,13 @@ export const TopBar = () => {
   const now = useNow(1000);
 
   const mm = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
-  const ss = String(Math.floor(elapsedSec % 60)).padStart(2, '0');
+  const ss = String(elapsedSec % 60).padStart(2, '0');
+
+  // Досрочное завершение сохраняет результат и показывает окно результатов, как по истечении времени
+  const finishEarly = () => {
+    if (window.confirm('Завершить тренировку досрочно? Результат будет сохранён.')) finish();
+  };
+  const active = status === 'running' || status === 'paused';
 
   return (
     <header className={styles.bar}>
@@ -49,15 +53,23 @@ export const TopBar = () => {
       <div className={styles.center}>
         {inSimulation && (
           <>
-            {status !== 'running' ? (
-              <button className={styles.start} onClick={() => (status === 'paused' ? resume() : start(training))}>
-                ▶ {status === 'paused' ? 'Продолжить' : 'Старт'}
+            {/* Новый сеанс запускается только из основного меню через окно настроек (п.3.3 ТЗ, п.1–2) */}
+            {status === 'running' && (
+              <button className={styles.pause} onClick={pause}>
+                ❚❚ Пауза
               </button>
-            ) : (
-              <button className={styles.pause} onClick={pause}>❚❚ Пауза</button>
             )}
-            <div className={styles.timer}>⏱ {mm}:{ss}</div>
-            <button className={styles.reset} onClick={reset}>↺ Сброс</button>
+            {status === 'paused' && (
+              <button className={styles.start} onClick={resume}>
+                ▶ Продолжить
+              </button>
+            )}
+            <div className={styles.timer}>
+              ⏱ {mm}:{ss}
+            </div>
+            <button className={styles.reset} onClick={finishEarly} disabled={!active}>
+              ■ Завершить
+            </button>
           </>
         )}
       </div>

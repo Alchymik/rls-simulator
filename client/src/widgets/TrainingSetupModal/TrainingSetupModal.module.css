@@ -73,7 +73,9 @@
   border-radius: 8px;
 }
 
-.cancel:hover { background: #24507c; }
+.cancel:hover {
+  background: #24507c;
+}
 
 .start {
   padding: 10px 22px;
@@ -83,4 +85,6 @@
   border-radius: 8px;
 }
 
-.start:hover { background: #0048c0; }
+.start:hover {
+  background: #0048c0;
+}

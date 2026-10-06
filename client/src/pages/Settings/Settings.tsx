@@ -77,11 +77,7 @@ const Settings = () => {
           />
           <b>{Math.round(sound.volume * 100)}%</b>
         </label>
-        <button
-          className={styles.test}
-          onClick={() => playAlert(sound.volume)}
-          disabled={!sound.enabled}
-        >
+        <button className={styles.test} onClick={() => playAlert(sound.volume)} disabled={!sound.enabled}>
           Проверить сигнал
         </button>
       </section>

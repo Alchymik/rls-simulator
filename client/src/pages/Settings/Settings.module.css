@@ -77,7 +77,9 @@
   border-radius: 8px;
 }
 
-.test:not(:disabled):hover { background: #24507c; }
+.test:not(:disabled):hover {
+  background: #24507c;
+}
 
 .test:disabled {
   opacity: 0.4;

@@ -1,5 +1,5 @@
 // client/src/widgets/UsersPanel/UsersPanel.tsx
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { apiErrorMessage } from '@/shared/api/client';
 import { createUser, deleteUser, fetchUsers, updateUser } from '@/features/users/api/usersApi';
 import { ROLE_LABEL } from '@/entities/user/model/roleLabels';
@@ -12,6 +12,8 @@ export const UsersPanel = ({ currentUserId }: { currentUserId: string }) => {
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [draft, setDraft] = useState({ login: '', password: '', displayName: '', role: 'operator' as Role });
   const [reloadToken, setReloadToken] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const lock = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,6 +32,9 @@ export const UsersPanel = ({ currentUserId }: { currentUserId: string }) => {
   }, [reloadToken]);
 
   const run = async (action: () => Promise<unknown>, success: string) => {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
     setMessage(null);
     try {
       await action();
@@ -37,12 +42,19 @@ export const UsersPanel = ({ currentUserId }: { currentUserId: string }) => {
       setReloadToken((n) => n + 1);
     } catch (e: unknown) {
       setMessage({ kind: 'error', text: apiErrorMessage(e, 'Операция не выполнена') });
+    } finally {
+      lock.current = false;
+      setBusy(false);
     }
   };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const { login, password, displayName, role } = draft;
+    if (new TextEncoder().encode(password).length > 72) {
+      setMessage({ kind: 'error', text: 'Пароль должен занимать не больше 72 байт UTF-8' });
+      return;
+    }
     void run(async () => {
       await createUser({ login, password, displayName, role });
       setDraft({ login: '', password: '', displayName: '', role: 'operator' });
@@ -77,6 +89,8 @@ export const UsersPanel = ({ currentUserId }: { currentUserId: string }) => {
                   <select
                     className={styles.select}
                     value={u.role}
+                    // Свою роль администратор не меняет: иначе интерфейс остаётся «админским», а API отвечает 403
+                    disabled={busy || u.id === currentUserId}
                     onChange={(e) =>
                       void run(() => updateUser(u.id, { role: e.target.value as Role }), 'Роль изменена')
                     }
@@ -89,7 +103,7 @@ export const UsersPanel = ({ currentUserId }: { currentUserId: string }) => {
                   <button
                     className={styles.remove}
                     onClick={() => remove(u)}
-                    disabled={u.id === currentUserId}
+                    disabled={busy || u.id === currentUserId}
                     title={u.id === currentUserId ? 'Нельзя удалить себя' : 'Удалить пользователя'}
                   >
                     Удалить
@@ -104,28 +118,54 @@ export const UsersPanel = ({ currentUserId }: { currentUserId: string }) => {
       <form className={styles.form} onSubmit={submit}>
         <label className={styles.field}>
           <span>Логин</span>
-          <input value={draft.login} onChange={(e) => setDraft({ ...draft, login: e.target.value })} required minLength={3} />
+          <input
+            value={draft.login}
+            onChange={(e) => setDraft({ ...draft, login: e.target.value })}
+            required
+            minLength={3}
+            maxLength={32}
+            pattern="[A-Za-z0-9._\-]+"
+          />
         </label>
         <label className={styles.field}>
           <span>Имя</span>
-          <input value={draft.displayName} onChange={(e) => setDraft({ ...draft, displayName: e.target.value })} required />
+          <input
+            value={draft.displayName}
+            onChange={(e) => setDraft({ ...draft, displayName: e.target.value })}
+            required
+          />
         </label>
         <label className={styles.field}>
           <span>Пароль</span>
-          <input type="password" value={draft.password} onChange={(e) => setDraft({ ...draft, password: e.target.value })} required minLength={4} />
+          <input
+            type="password"
+            value={draft.password}
+            onChange={(e) => setDraft({ ...draft, password: e.target.value })}
+            required
+            minLength={8}
+            maxLength={72}
+          />
         </label>
         <label className={styles.field}>
           <span>Роль</span>
-          <select className={styles.select} value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value as Role })}>
+          <select
+            className={styles.select}
+            value={draft.role}
+            onChange={(e) => setDraft({ ...draft, role: e.target.value as Role })}
+          >
             <option value="operator">{ROLE_LABEL.operator}</option>
             <option value="admin">{ROLE_LABEL.admin}</option>
           </select>
         </label>
-        <button className={styles.submit} type="submit">Добавить</button>
+        <button className={styles.submit} type="submit" disabled={busy}>
+          Добавить
+        </button>
       </form>
 
       {message && (
-        <p className={message.kind === 'ok' ? styles.ok : styles.error} role="status">{message.text}</p>
+        <p className={message.kind === 'ok' ? styles.ok : styles.error} role="status">
+          {message.text}
+        </p>
       )}
     </section>
   );

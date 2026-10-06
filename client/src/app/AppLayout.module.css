@@ -1,4 +1,18 @@
 /* AppLayout.module.css */
-.root { display: flex; flex-direction: column; height: 100vh; background: #eef1f5; color: #1f2937; }
-.body { flex: 1; display: flex; min-height: 0; }
-.content { flex: 1; min-width: 0; position: relative; }
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #eef1f5;
+  color: #1f2937;
+}
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.content {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
