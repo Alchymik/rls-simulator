@@ -85,7 +85,7 @@ const createHarness = () => {
   const electron = {
     app,
     BrowserWindow,
-    Menu: { setApplicationMenu: () => {} },
+    Menu: { setApplicationMenu: () => { } },
     dialog: { showErrorBox: (...args) => errors.push(args) },
     protocol,
   };
@@ -101,7 +101,7 @@ const createHarness = () => {
     Headers,
     Response,
     URL,
-    console: { error: () => {}, log: () => {} },
+    console: { error: () => { }, log: () => { } },
     fetch: fakeFetch,
     process: {
       env: {},
@@ -266,7 +266,10 @@ test('times out startup, kills the child, and reports a backend crash after read
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(timedOut.windows.length, 0);
   assert.equal(timedOut.errors.length, 1);
-  assert.equal(timedOut.child.signalCode, 'SIGTERM');
+  if (process.platform !== 'win32') {
+    assert.strictEqual(child.signalCode, 'SIGTERM');
+  }
+
   assert.equal(timedOut.calls.quit, 1);
 
   const crashed = createHarness();
