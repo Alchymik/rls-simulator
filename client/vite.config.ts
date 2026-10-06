@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => ({
         codeSplitting: {
           groups: [
             { name: 'leaflet', test: /node_modules[\\/](leaflet|react-leaflet)/ },
-            { name: 'charts',  test: /node_modules[\\/]recharts/ },
+            { name: 'charts', test: /node_modules[\\/]recharts/ },
           ],
         },
       },

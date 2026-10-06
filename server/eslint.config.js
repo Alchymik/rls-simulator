@@ -17,11 +17,14 @@ export default tseslint.config(
     files: ['**/*.ts'],
     rules: {
       // Подчёркивание — осознанно неиспользуемый аргумент/переменная
-      '@typescript-eslint/no-unused-vars': ['error', {
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_',
-      }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
       // Глобальные типы (process, console) проверяет TypeScript
       'no-undef': 'off',
     },
