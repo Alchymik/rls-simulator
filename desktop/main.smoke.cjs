@@ -85,7 +85,7 @@ const createHarness = () => {
   const electron = {
     app,
     BrowserWindow,
-    Menu: { setApplicationMenu: () => { } },
+    Menu: { setApplicationMenu: () => {} },
     dialog: { showErrorBox: (...args) => errors.push(args) },
     protocol,
   };
@@ -101,7 +101,7 @@ const createHarness = () => {
     Headers,
     Response,
     URL,
-    console: { error: () => { }, log: () => { } },
+    console: { error: () => {}, log: () => {} },
     fetch: fakeFetch,
     process: {
       env: {},
