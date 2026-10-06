@@ -263,13 +263,10 @@ test('reports child exit before readiness and does not accept another process as
 
 test('times out startup, kills the child, and reports a backend crash after readiness', async () => {
   const timedOut = createHarness();
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await new Promise((resolve) => setTimeout(resolve, 200));
   assert.equal(timedOut.windows.length, 0);
   assert.equal(timedOut.errors.length, 1);
-  if (process.platform !== 'win32') {
-    assert.strictEqual(child.signalCode, 'SIGTERM');
-  }
-
+  assert.strictEqual(timedOut.child.signalCode, 'SIGTERM');
   assert.equal(timedOut.calls.quit, 1);
 
   const crashed = createHarness();
