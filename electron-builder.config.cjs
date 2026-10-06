@@ -21,4 +21,5 @@ module.exports = {
     createDesktopShortcut: true,
     createStartMenuShortcut: true,
   },
+  publish: null
 };
